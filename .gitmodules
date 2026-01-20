@@ -1,0 +1,9 @@
+[submodule "bash-omb/.oh-my-bash"]
+	path = bash-omb/.oh-my-bash
+	url = https://github.com/ohmybash/oh-my-bash.git
+[submodule "neovim/.config/nvim"]
+	path = neovim/.config/nvim
+	url = https://github.com/nidduzzi/nvim-config.git
+[submodule "tmux-omt"]
+	path = tmux-omt
+	url = https://github.com/nidduzzi/.tmux

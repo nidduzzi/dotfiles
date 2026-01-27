@@ -180,6 +180,12 @@ else
   export EDITOR='nvim'
 fi
 
+BINDIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
+
+if ! echo $PATH | grep "$BINDIR" >/dev/null 2>&1; then
+	export PATH="$PATH:$BINDIR"
+fi
+
 # Compilation flags
 # export ARCHFLAGS="-arch x86_64"
 

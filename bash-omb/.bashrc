@@ -188,11 +188,15 @@ fi
 BINDIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
 
 if ! echo $PATH | grep "$BINDIR" >/dev/null 2>&1; then
-	export PATH="$PATH:$BINDIR"
+  export PATH="$BINDIR:$PATH"
 fi
 
 if command -v zypper &> /dev/null; then
-    ZYPP_MEDIANETWORK=1
+  ZYPP_MEDIANETWORK=1
+fi
+
+if [[ -f "$HOME/.bashrc_local" ]]; then
+  source "$HOME/.bashrc_local"
 fi
 
 # Compilation flags

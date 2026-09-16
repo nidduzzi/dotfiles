@@ -12,6 +12,8 @@ bash-omb/.config/shell/local/*
 !bash-omb/.config/shell/local/.gitkeep
 tmux-local/.config/tmux/local/*
 !tmux-local/.config/tmux/local/.gitkeep
+# Templates are shared; only what you copy from them stays local.
+!tmux-local/.config/tmux/local/*.example
 
 # Harness scratch: trial Neovim configs pull in plugins, and the fixture repo
 # is regenerated on demand.

@@ -142,12 +142,40 @@ set. It is now, in `~/.config/tmux/shared/20-resurrect.conf`, with a `~` prefix
 so programs come back with their arguments and the files reopen whatever the
 cwd was.
 
+## Catching the next tmux death
+
+`tmux -vv` writes its log into the current directory at server start, so it
+cannot simply be aliased: every `tmux ls` would leave log files wherever you
+were standing, and starting the server from a log directory would make new
+sessions open there. These functions handle both halves, starting the server
+from the log directory while the session keeps the directory you are in.
+
+```sh
+tmux-debug           # start a logged server and attach
+tmux-debug-status    # where the logs are, and whether the server is logging
+tmux-debug-last      # last 40 lines of the server log, after a death
+tmux-debug-off       # back to a normal server
+```
+
+Logging can only be turned on when the server starts, so a server that is
+already running has to be replaced:
+
+```sh
+tmux kill-server && tmux-debug
+```
+
+After a death, `tmux-debug-last` shows what the server was parsing when it
+stopped. A busy server writes tens of megabytes an hour, because every escape
+sequence is recorded, so turn it off once the fault is understood.
+
 ## Tools
 
 | Script                                  | Purpose                                            |
 | --------------------------------------- | -------------------------------------------------- |
 | `tools/shell/harvest-appended.sh`       | Move installer-appended lines out of shared config |
 | `tools/tmux/crash-capture.sh`           | Run tmux with logging and core dumps enabled       |
+| `tools/tmux/nvim-startup-repro.sh`      | Start Neovim in tmux repeatedly, watching for death |
+| `tools/tmux/fake-terminal.py`           | Attach a pty that answers terminal queries          |
 | `tools/tmux/sixel-crash-repro.sh`       | Try to crash a tmux server with sixel, safely      |
 | `tools/nvim-harness/nvim-drive.sh`      | Drive Neovim in an isolated tmux and capture it    |
 | `tools/nvim-harness/ansi-to-html.py`    | Turn a capture into a viewable picture             |

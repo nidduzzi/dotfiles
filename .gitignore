@@ -1,3 +1,22 @@
 # Local-only generated files
 **/*.local
 
+# ...except the shared tmux override file, whose name ends in .local only
+# because gpakosz/.tmux looks for it under that name. It is shared config.
+!tmux-local/.tmux.conf.local
+
+# The local tier: machine-specific settings that must never reach a commit.
+# The directories themselves are tracked through their .gitkeep so that `stow`
+# links them on a fresh clone, but nothing dropped inside them is.
+bash-omb/.config/shell/local/*
+!bash-omb/.config/shell/local/.gitkeep
+tmux-local/.config/tmux/local/*
+!tmux-local/.config/tmux/local/.gitkeep
+
+# Harness scratch: trial Neovim configs pull in plugins, and the fixture repo
+# is regenerated on demand.
+tools/nvim-harness/fixture/
+tools/nvim-harness/trials/*/lazy-lock.json
+
+# Git worktrees for in-progress submodule branches (the LazyVim migration).
+.worktrees/

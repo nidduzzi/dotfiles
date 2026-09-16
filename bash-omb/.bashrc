@@ -130,87 +130,31 @@ plugins=(
 
 source "$OSH"/oh-my-bash.sh
 
-# User configuration
-# export MANPATH="/usr/local/man:$MANPATH"
-export HF_HOME="/mnt/d/.cache/huggingface/"
-
-# fnm
-FNM_PATH="/$HOME/.local/share/fnm"
-if [ -d "$FNM_PATH" ]; then
-  export PATH="$FNM_PATH:$PATH"
-  eval "`fnm env`"
-fi
-
-if [[ -d "/$HOME/miniforge3" ]]; then
-  # >>> conda initialize >>>
-  # !! Contents within this block are managed by 'conda init' !!
-  __conda_setup="$("/$HOME/miniforge3/bin/conda" 'shell.bash' 'hook' 2> /dev/null)"
-  if [ $? -eq 0 ]; then
-      eval "$__conda_setup"
-  else
-      if [ -f "/$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-          . "/$HOME/miniforge3/etc/profile.d/conda.sh"
-      else
-          export PATH="/$HOME/miniforge3/bin:$PATH"
-      fi
-  fi
-  unset __conda_setup
-  # <<< conda initialize <<<
-
-
-  # >>> mamba initialize >>>
-  # !! Contents within this block are managed by 'mamba shell init' !!
-  export MAMBA_EXE="/$HOME/miniforge3/bin/mamba";
-  export MAMBA_ROOT_PREFIX="/$HOME/miniforge3";
-  __mamba_setup="$("$MAMBA_EXE" shell hook --shell bash --root-prefix "$MAMBA_ROOT_PREFIX" 2> /dev/null)"
-  if [ $? -eq 0 ]; then
-      eval "$__mamba_setup"
-  else
-      alias mamba="$MAMBA_EXE"  # Fallback on help from mamba activate
-  fi
-  unset __mamba_setup
-  # <<< mamba initialize <<<
-fi
-
-# You may need to manually set your language environment
-# export LANG=en_US.UTF-8
-if [[ -d '/opt/nvim/' ]]; then
-  export PATH="$PATH:/opt/nvim/"
-fi
-
-# Preferred editor for local and remote sessions
-if [[ -n $SSH_CONNECTION ]]; then
-  export EDITOR='nvim'
-else
-  export EDITOR='nvim'
-fi
-
-BINDIR="${XDG_BIN_HOME:-$HOME/.local/bin}"
-
-if ! echo $PATH | grep "$BINDIR" >/dev/null 2>&1; then
-  export PATH="$BINDIR:$PATH"
-fi
-
-if command -v zypper &> /dev/null; then
-  ZYPP_MEDIANETWORK=1
-fi
-
-if [[ -f "$HOME/.bashrc_local" ]]; then
-  source "$HOME/.bashrc_local"
-fi
-
-# Compilation flags
-# export ARCHFLAGS="-arch x86_64"
-
-# ssh
-# export SSH_KEY_PATH="~/.ssh/rsa_id"
-
-# Set personal aliases, overriding those provided by oh-my-bash libs,
-# plugins, and themes. Aliases can be placed here, though oh-my-bash
-# users are encouraged to define aliases within the OSH_CUSTOM folder.
-# For a full list of active aliases, run `alias`.
+# -- User configuration ------------------------------------------------------
 #
-# Example aliases
-# alias bashconfig="mate ~/.bashrc"
-# alias ohmybash="mate ~/.oh-my-bash"
+# Nothing machine-specific belongs below. The loader pulls in three tiers:
+#
+#   ~/.config/shell/shared/*.sh      committed, every machine
+#   ~/.config/shell/hosts/$(hostname -s).sh  committed, this machine
+#   ~/.config/shell/local/*.sh       never committed, throwaway
+#
+# To change one machine only, add a file to the local tier. Never edit this
+# file for it, because this file is a symlink into the dotfiles repo and the
+# change would follow you to every other machine.
 
+if [[ -r "${XDG_CONFIG_HOME:-$HOME/.config}/shell/loader.sh" ]]; then
+  source "${XDG_CONFIG_HOME:-$HOME/.config}/shell/loader.sh"
+fi
+
+# -- DOTFILES APPEND GUARD ---------------------------------------------------
+# Installers append to ~/.bashrc without asking. Because ~/.bashrc is a symlink
+# into this repo, those lines land in shared, committed config and follow you
+# to machines where they make no sense.
+#
+# Anything appended below this marker is machine-specific by definition.
+# Move it into the right tier with:
+#
+#   dotfiles/tools/shell/harvest-appended.sh
+#
+# Do not add configuration below this line by hand.
+# >>> appended-below-here >>>

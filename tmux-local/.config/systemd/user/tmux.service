@@ -1,0 +1,40 @@
+[Unit]
+# Own the tmux server, so that no SSH login owns it.
+#
+# Without this unit, the tmux server ends up inside the cgroup of whichever
+# login session happened to start it:
+#
+#   /user.slice/user-1000.slice/session-18210.scope
+#
+# tmux tries to move itself and each pane into scopes of their own under
+# user@.service, but those moves fail on this machine:
+#
+#   tmux-spawn-….scope: Couldn't move process … Input/output error
+#   tmux-spawn-….scope: Failed to add PIDs to scope's control group: Permission denied
+#
+# so everything stays in that one login session scope. When systemd stops the
+# scope, because the connection dropped or logind reaped the session, every
+# process in it is killed: the server and every pane of every session at once.
+# There is no crash, no core and nothing in /var/crash, which is why this never
+# looked like what it was.
+#
+# Started by the user manager, the server belongs to user@.service instead, and
+# outlives every login. Lingering must be on, or the user manager itself stops
+# at logout:
+#
+#   loginctl enable-linger $USER
+Description=tmux server
+Documentation=man:tmux(1)
+
+[Service]
+Type=forking
+# tmux forks the server and returns, so systemd keeps tracking whatever is
+# left running in the cgroup, which is the server.
+ExecStart=/usr/bin/tmux new-session -d -s main
+ExecStop=/usr/bin/tmux kill-server
+# Do not restart after a deliberate kill-server, only after a real failure.
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

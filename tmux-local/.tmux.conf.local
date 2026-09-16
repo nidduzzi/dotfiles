@@ -452,7 +452,9 @@ set -g @plugin 'tmux-plugins/tmux-sensible'
 set -g @plugin 'tmux-plugins/tmux-cpu'
 set -g @plugin 'tmux-plugins/tmux-resurrect'
 set -g @plugin 'tmux-plugins/tmux-continuum'
-set -g @continuum-restore 'on'
+# Resurrect and continuum settings live in
+# ~/.config/tmux/shared/20-resurrect.conf, sourced by the machine tiers block
+# below, so that what is saved and restored is configured in one place.
 
 
 # -- machine tiers -------------------------------------------------------------

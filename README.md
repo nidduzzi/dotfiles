@@ -80,6 +80,68 @@ every upstream update.
 nothing but upstream, apart from one line in its `.stow-local-ignore` that
 stops it claiming that filename.
 
+## Why tmux used to take every session down at once
+
+The tmux server was ending up in the cgroup of whichever SSH login started it:
+
+```
+server cgroup: 0::/user.slice/user-1000.slice/session-18210.scope
+pane   cgroup: 0::/user.slice/user-1000.slice/session-18210.scope
+```
+
+It belongs under `user@1000.service`. tmux tries to move itself and each pane
+into scopes of their own there, and on this machine every one of those moves
+fails:
+
+```
+tmux-spawn-….scope: Couldn't move process … Input/output error
+tmux-spawn-….scope: Failed to add PIDs to scope's control group: Permission denied
+```
+
+So the server and every pane of every session stayed inside one login session
+scope. When systemd stopped that scope, because the connection dropped or
+logind reaped the session, everything in it was killed at once. No crash, no
+core dump, nothing in `/var/crash`, which is why it never looked like what it
+was, and why `tmux attach` afterwards reported no sessions.
+
+`tmux.service` fixes it by letting the user manager own the server:
+
+```sh
+systemctl --user enable --now tmux.service
+tmux attach                      # attach as usual afterwards
+```
+
+Verify it took:
+
+```sh
+cat /proc/$(tmux display -p '#{pid}')/cgroup
+# want: /user.slice/user-1000.slice/user@1000.service/app.slice/tmux.service
+# not:  /user.slice/user-1000.slice/session-NNNNN.scope
+```
+
+Lingering must stay on, or the user manager stops at logout:
+
+```sh
+loginctl enable-linger $USER
+```
+
+Started this way, the per-pane scopes also succeed, so the log spam stops too.
+
+## Why restored panes came back in the wrong directory
+
+resurrect saves `pane_current_path`, the cwd of the pane's foreground process.
+Run `nvim ~/projects/thing/file.lua` from your home directory and nvim never
+changes directory, so the pane's cwd genuinely is your home directory. The
+pane title said `thing` only because nvim set it. resurrect saved the truth and
+restored it; what was missing was the work.
+
+The saved files showed the second half of this: the final field of every pane
+line was empty, and `restore.sh` skips any pane whose full command is empty. No
+program was being restored at all, because `@resurrect-processes` was never
+set. It is now, in `~/.config/tmux/shared/20-resurrect.conf`, with a `~` prefix
+so programs come back with their arguments and the files reopen whatever the
+cwd was.
+
 ## Tools
 
 | Script                                  | Purpose                                            |

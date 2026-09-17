@@ -26,10 +26,18 @@ from pathlib import Path
 SPEC_SAME_LINE = re.compile(r'^[ \t]*\{[ \t]*"((?:<leader>|<[A-Za-z-]+>)[^"]*)"', re.M)
 SPEC_OWN_LINE = re.compile(r'^[ \t]*"((?:<leader>|<[A-Za-z-]+>)[^"]*)"[ \t]*,[ \t]*$', re.M)
 
-# vim.keymap.set / map("n", "<leader>x", ...)
+# vim.keymap.set / map("n", "<leader>x", ...), keeping the modes: the same key
+# in normal and visual mode is two mappings, not a key bound twice. <leader>ar
+# is exactly that, and counting it as a duplicate is how a checker teaches you
+# to ignore it.
 MAP_CALL = re.compile(
-    r'(?:vim\.keymap\.set|\bmap)\(\s*(?:\{[^}]*\}|"[a-z]+")\s*,\s*"([^"]+)"'
+    r'(?:vim\.keymap\.set|\bmap)\(\s*(\{[^}]*\}|"[a-z]+")\s*,\s*"([^"]+)"'
 )
+
+
+def modes_of(raw: str) -> str:
+    """Normalise `"n"` and `{ "n", "x" }` to a sorted mode string."""
+    return "".join(sorted(set(re.findall(r'"([a-z]+)"', raw))))
 
 
 def main() -> int:
@@ -47,9 +55,20 @@ def main() -> int:
 
         text = path.read_text(encoding="utf-8")
 
-        for pattern in (SPEC_SAME_LINE, SPEC_OWN_LINE, MAP_CALL):
+        # A bare "<leader>x", on its own line is a lazy.nvim key spec only
+        # inside a plugin spec. Elsewhere it is an ordinary list of strings —
+        # the key guard's watch list is exactly that, and reading it as nine
+        # bindings produced nine duplicates that do not exist.
+        patterns = [MAP_CALL]
+        if "plugins" in path.parts:
+            patterns += [SPEC_SAME_LINE, SPEC_OWN_LINE]
+
+        for pattern in patterns:
             for match in pattern.finditer(text):
-                key = match.group(1)
+                if pattern is MAP_CALL:
+                    key = f"{modes_of(match.group(1))} {match.group(2)}"
+                else:
+                    key = f"n {match.group(1)}"
                 line = text[: match.start()].count("\n") + 1
                 seen.setdefault(key, []).append(f"{path.name}:{line}")
 

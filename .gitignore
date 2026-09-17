@@ -28,5 +28,20 @@ __pycache__/
 tools/nvim-harness/design/*.html
 !tools/nvim-harness/design/*.dc.html
 
+# Harness captures. The tour and the drive script write under $TMPDIR by
+# default, but both take -o, and pointing one at the repo should not commit a
+# few hundred screenshots.
+*.ansi
+tools/nvim-harness/captures/
+tools/nvim-harness/*-tour/
+tools/nvim-harness/*-check/
+
+# Editor and OS leavings, which have no business in a repository that is
+# symlinked into $HOME.
+*.swp
+*.swo
+*~
+.DS_Store
+
 # Git worktrees for in-progress submodule branches (the LazyVim migration).
 .worktrees/

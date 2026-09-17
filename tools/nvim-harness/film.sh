@@ -12,6 +12,12 @@
 # every key batch instead of once at the end, and build-film.py turns the
 # sequence into a page you can step through.
 #
+# Run one at a time. Two recordings sharing an NVIM_APPNAME share Neovim's
+# swap and shada directories, and the second one opens a file the first still
+# holds: a film recorded that way ends on the dashboard with nothing in it. The
+# tmux socket carries the process id, so the servers do not collide — the
+# editor's own state still does.
+#
 # Usage:
 #   film.sh [options] KEY_BATCH [KEY_BATCH ...]
 #
@@ -67,7 +73,7 @@ RPC="${TMPDIR:-/tmp}/nvim-film-$$.sock"
 tm() { tmux -L "$SOCKET" "$@"; }
 cleanup() {
   tm kill-server 2>/dev/null || true
-  rm -f "$RPC"
+  rm -f "$RPC" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
 }
 trap cleanup EXIT
 
@@ -89,6 +95,18 @@ fi
 launch="nvim"
 [[ -n "$APPNAME" ]] && launch="NVIM_APPNAME=$APPNAME $launch"
 [[ -n "$CONFIG_DIR" ]] && launch="XDG_CONFIG_HOME=$CONFIG_DIR $launch"
+
+# Carry through what the agent backends read for their endpoint and key. The
+# editor is started by tmux, which does not inherit this shell's environment,
+# so without this Hermes falls back to whatever its config names and answers
+# `HTTP 401: Unauthorized` — which the review then reported as "Nothing found",
+# because a failed request and a clean function looked the same.
+for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
+            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL ANTHROPIC_API_KEY; do
+  if [[ -n "${!name:-}" ]]; then
+    launch="$name=$(printf '%q' "${!name}") $launch"
+  fi
+done
 launch="env $launch --listen $RPC"
 
 tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"

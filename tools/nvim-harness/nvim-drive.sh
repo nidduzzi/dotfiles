@@ -107,6 +107,18 @@ fi
 launch="nvim"
 [[ -n "$APPNAME" ]] && launch="NVIM_APPNAME=$APPNAME $launch"
 [[ -n "$CONFIG_DIR" ]] && launch="XDG_CONFIG_HOME=$CONFIG_DIR $launch"
+
+# Carry through what the agent backends read for their endpoint and key. The
+# editor is started by tmux, which does not inherit this shell's environment,
+# so without this Hermes falls back to whatever its config names and answers
+# `HTTP 401: Unauthorized` — which the review then reported as "Nothing found",
+# because a failed request and a clean function looked the same.
+for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
+            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL ANTHROPIC_API_KEY; do
+  if [[ -n "${!name:-}" ]]; then
+    launch="$name=$(printf '%q' "${!name}") $launch"
+  fi
+done
 launch="env $launch"
 
 # -f /dev/null keeps the harness server away from the user's tmux config, whose

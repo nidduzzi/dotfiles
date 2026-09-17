@@ -78,6 +78,12 @@ if [[ -s "$OUT/audit.txt" ]]; then
   # Vim's own undescribed built-ins are hidden from the hints, so they are not
   # the fault this is looking for.
   grep -E "DEAD|EMPTY|names code" "$OUT/audit.txt" | grep -v "Plug" || echo "none"
+
+  echo
+  echo "== single keys a plugin took over without describing =="
+  # flash.nvim takes f, F, t and T. They answer to nothing — not which-key, not
+  # the capability list — so "what does t do" had no answer in the editor.
+  grep -E "^TAKEN" "$OUT/audit.txt" || echo "none"
 else
   echo "audit did not run"
 fi

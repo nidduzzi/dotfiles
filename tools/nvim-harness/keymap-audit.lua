@@ -73,6 +73,12 @@ local function liveness(map, prefixes)
   return "keys"
 end
 
+--- Single-key mappings, collected across every call so they can be reported
+--- on their own. A plugin that takes over `t` is invisible to which-key and to
+--- the combination audit alike.
+---@type table[]
+local singles = {}
+
 --- Every mapping of two keys or more, in one mode, global and buffer-local.
 ---@param mode string
 ---@return table[]
@@ -95,9 +101,22 @@ local function collect(mode)
   local function add(maps, scope)
     for _, map in ipairs(maps) do
       local lhs = vim.fn.keytrans(map.lhs or "")
-      -- Single keys are not combinations; they are also where which-key has
-      -- nothing to show, because there is no prefix to wait on.
-      if vim.fn.strchars(lhs) > 1 then
+      -- Single keys are not combinations, and which-key has nothing to show
+      -- for them because there is no prefix to wait on. They are collected
+      -- separately rather than skipped: a plugin that takes over a built-in
+      -- single key and gives it no description is the hardest kind of key to
+      -- find out about. flash.nvim takes f, F, t and T this way, and "what
+      -- does t do" had no answer anywhere in the editor.
+      if vim.fn.strchars(lhs) == 1 then
+        local status, text = describe(map)
+        table.insert(singles, {
+          lhs = lhs,
+          mode = mode,
+          scope = scope,
+          status = status,
+          desc = text,
+        })
+      elseif vim.fn.strchars(lhs) > 1 then
         local status, text = describe(map)
         table.insert(rows, {
           lhs = lhs,
@@ -115,6 +134,31 @@ local function collect(mode)
   add(vim.api.nvim_buf_get_keymap(0, mode), "buffer")
 
   return rows
+end
+
+--- Single keys whose behaviour was replaced, worst first: the ones that cannot
+--- say what they do.
+---@return table[]
+local function taken_over()
+  -- Vim's own single-key commands have no desc either, and listing all of them
+  -- would bury the handful a plugin actually replaced. A global mapping with a
+  -- callback is a plugin's doing; a plain rhs is usually a personal remap and
+  -- reads for itself.
+  local interesting = {}
+  for _, row in ipairs(singles) do
+    if row.scope == "global" and row.status ~= "ok" then
+      table.insert(interesting, row)
+    end
+  end
+
+  table.sort(interesting, function(a, b)
+    if a.lhs == b.lhs then
+      return a.mode < b.mode
+    end
+    return a.lhs < b.lhs
+  end)
+
+  return interesting
 end
 
 local context = vim.env.NVIM_KEYMAP_AUDIT_CONTEXT or vim.bo.filetype
@@ -183,6 +227,19 @@ if #problems == 0 then
 else
   for _, row in ipairs(problems) do
     line(("%-22s %-2s %-7s %-14s %s"):format(row.lhs, row.mode, row.scope, row.status, row.live))
+  end
+end
+
+local replaced = taken_over()
+line()
+line(("## single keys taken over: %d"):format(#replaced))
+line("-- A built-in key a plugin replaced without saying what it now does.")
+line("-- Invisible to which-key, which needs a prefix to pop up on.")
+if #replaced == 0 then
+  line("none")
+else
+  for _, row in ipairs(replaced) do
+    line(("TAKEN %-4s %-2s %-7s %-14s %s"):format(row.lhs, row.mode, row.scope, row.status, row.desc))
   end
 end
 

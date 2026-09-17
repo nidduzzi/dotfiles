@@ -1,0 +1,61 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
+  <style>
+    body { margin: 0; font-family: "JetBrains Mono", ui-monospace, monospace; }
+    a { color: #7dcfff; } a:hover { color: #b4f9f8; }
+  </style>
+</helmet>
+<div style="background: #16161e; color: #c0caf5; width: 900px; min-height: 660px; padding: 32px 34px; display: flex; flex-direction: column; gap: 22px">
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #565f89">Option C</div>
+    <div style="font-size: 23px; font-weight: 700">Say it in the query</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; color: #9aa5ce; max-width: 70ch">No chords at all. Scope and target are words you type, the way a search engine takes them.</div>
+  </div>
+
+  <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 10px">
+    <div style="font-size: 12px; letter-spacing: 0.12em; color: #bb9af7">GRAMMAR</div>
+    <div style="display: grid; grid-template-columns: 210px 1fr; gap: 8px 16px; font-size: 13px">
+      <div style="color: #9ece6a">validateToken</div><div style="color: #a9b1d6">contents, the default</div>
+      <div style="color: #9ece6a">path:src/** token</div><div style="color: #a9b1d6">only under src</div>
+      <div style="color: #9ece6a">!path:docs/** token</div><div style="color: #a9b1d6">everywhere but docs</div>
+      <div style="color: #9ece6a">ext:lua,ts token</div><div style="color: #a9b1d6">only those extensions</div>
+      <div style="color: #9ece6a">'token.expiry</div><div style="color: #a9b1d6">literal, no regex</div>
+      <div style="color: #9ece6a">docs: rate limit</div><div style="color: #a9b1d6">the prose instead of the code</div>
+    </div>
+  </div>
+
+  <div style="background: #1a1b26; border: 1px solid #3d5a75; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+    <div style="display: flex; gap: 10px; align-items: baseline; font-size: 13px">
+      <span style="color: #9ece6a">❯</span>
+      <span style="color: #bb9af7">path:src/**</span>
+      <span style="color: #c0caf5">validateToken</span>
+      <span style="margin-left: auto; color: #565f89">3/3</span>
+    </div>
+    <div style="height: 1px; background: #2c2f45"></div>
+    <div style="font-size: 12px; color: #565f89; font-family: 'IBM Plex Sans', sans-serif">path: · ext: · docs: · ! to invert · ' for literal</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+    <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11.5px; letter-spacing: 0.12em; color: #9ece6a">FOR IT</div>
+      <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #9aa5ce; line-height: 1.55">Nothing to memorise beyond a hint line that is always on screen, and it composes: scope and term in one breath, no reaching for Alt. Familiar from every search box you already use.</div>
+    </div>
+    <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 8px">
+      <div style="font-size: 11.5px; letter-spacing: 0.12em; color: #f7768e">AGAINST IT</div>
+      <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #9aa5ce; line-height: 1.55">The query is a regex, and prefixes are characters a regex may contain: searching for <span style="font-family: 'JetBrains Mono', monospace; color: #c0caf5">'</span> or a literal <span style="font-family: 'JetBrains Mono', monospace; color: #c0caf5">path:</span> now needs an escape rule. More typing than a chord for the repeat case.</div>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

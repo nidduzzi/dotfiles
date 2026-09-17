@@ -1,0 +1,43 @@
+# Keys this configuration deliberately takes over from stock LazyVim.
+#
+# Format: mode<TAB>lhs. The collision check reports anything not listed here,
+# so a key taken by accident stands out from one taken on purpose.
+#
+# Every entry needs a reason. A key with no reason is a key nobody decided on.
+
+# One grep key, with the filter switched inside it rather than one key each.
+n	<Space>/
+n	<Space>sg
+n	<Space>sw
+x	<Space>sw
+
+# Buffers, where the old configuration had them. Find Files keeps <leader>ff.
+n	<Space><Space>
+
+# which-key's buffer keymaps and this config's feature list answer the same
+# question, so they share one picker rather than competing for the key.
+n	<Space>?
+
+# Diffview's toggles, which close on the key that opened them. <leader>gd was
+# LazyVim's hunk diff, which <leader>gh and gitsigns still cover; the diff
+# viewer that handles merges is the one worth the shorter key.
+n	<Space>gd
+n	<Space>gf
+
+# persistence.nvim, with wording that says what it restores.
+n	<Space>qS
+n	<Space>ql
+
+# The same mapping, described in our own words.
+n	<lt>Esc>
+
+# Neovim's built-in LSP keys, which describe themselves with the function they
+# call and fire in buffers with no server attached. See lua/config/lsp-keys.lua.
+n	gO
+n	gra
+x	gra
+n	gri
+n	grn
+n	grr
+n	grt
+n	grx

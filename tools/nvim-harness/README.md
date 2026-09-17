@@ -61,7 +61,10 @@ XDG_CONFIG_HOME=$PWD/tools/nvim-harness/trials NVIM_APPNAME=lazyvim-snacks \
 | Trial            | What it is                                        |
 | ---------------- | ------------------------------------------------- |
 | `lazyvim-snacks` | Stock LazyVim, whose picker is `snacks.picker`    |
-| `lazyvim-fzf`    | LazyVim with the fzf-lua picker extra instead     |
+
+`lazyvim-snacks` is also the baseline `check-keymaps.sh` diffs against, so the
+keys this configuration takes over can be told apart from the ones it inherits.
+That is why it is kept once the picker question is settled.
 
 `fixture/` is a small generated repository with source files, a `docs/` tree
 and an `openspec/` tree, so picker and grep-filter behaviour can be compared

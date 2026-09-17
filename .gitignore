@@ -19,6 +19,14 @@ tmux-local/.config/tmux/local/*
 # is regenerated on demand.
 tools/nvim-harness/fixture/
 tools/nvim-harness/trials/*/lazy-lock.json
+__pycache__/
+*.py[co]
+
+# The design canvas is seeded from the .dc.html sources next to it, and the
+# seeded file carries a whole editor inlined: 2.4MB of minified code that is
+# regenerated rather than edited.
+tools/nvim-harness/design/*.html
+!tools/nvim-harness/design/*.dc.html
 
 # Git worktrees for in-progress submodule branches (the LazyVim migration).
 .worktrees/

@@ -73,6 +73,14 @@ trap cleanup EXIT
 # A fresh server every run, so state never leaks between captures.
 tm kill-server 2>/dev/null || true
 
+# Each run kills Neovim rather than quitting it, which leaves a swap file
+# behind. The next run that opens the same file would then stop at a recovery
+# prompt and capture that instead of the feature under test.
+if [[ -n "$APPNAME" ]]; then
+  swap_dir="${XDG_STATE_HOME:-$HOME/.local/state}/$APPNAME/swap"
+  [[ -d "$swap_dir" ]] && rm -f "$swap_dir"/*
+fi
+
 : "${WORKDIR:=$PWD}"
 
 # Neovim asks once before running a project's .nvim.lua. That prompt appears

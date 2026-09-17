@@ -1,0 +1,20 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 1180, "h": 840 },
+    { "file": "Matrix.dc.html", "x": 1300, "y": 0, "w": 1180, "h": 920 },
+    { "file": "OptionA.dc.html", "x": 0, "y": 1060, "w": 900, "h": 680 },
+    { "file": "OptionB.dc.html", "x": 1000, "y": 1060, "w": 900, "h": 680 },
+    { "file": "OptionC.dc.html", "x": 2000, "y": 1060, "w": 900, "h": 680 },
+    { "file": "Conflicts.dc.html", "x": 0, "y": 1860, "w": 900, "h": 620 }
+  ],
+  "annotations": [
+    {
+      "id": "read-order",
+      "x": 0,
+      "y": -150,
+      "w": 520,
+      "text": "Read: the space (Matrix) → three ways to cut it (A, B, C) → what is free to bind (Conflicts) → the proposal (this row)."
+    }
+  ],
+  "launch": { "view": "canvas" }
+}

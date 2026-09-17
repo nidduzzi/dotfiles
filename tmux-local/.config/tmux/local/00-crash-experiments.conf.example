@@ -1,0 +1,53 @@
+# Experiments for the "opening Neovim kills the whole tmux server" fault.
+#
+# The fault is intermittent and only appears with a real Windows Terminal
+# client attached over SSH, which is why it cannot be reproduced on the machine
+# itself. Rather than guess, run one experiment at a time for long enough to be
+# convincing, then move to the next.
+#
+# Copy this file to 00-crash-experiments.conf in the same directory, uncomment
+# one block, and restart the tmux server. The local tier is never committed, so
+# these stay on this machine.
+#
+# Keep notes. "It did not crash today" is only evidence if it usually would
+# have by now.
+
+# ---------------------------------------------------------------------------
+# Experiment 1: extended keys
+#
+# Best fit for the symptom. Neovim negotiates the terminal's extended key
+# protocols while starting, and only while starting. It is the one thing it
+# does that Claude, btop and a shell do not, which matches the fault appearing
+# only at Neovim startup and never once Neovim is up. This machine's tmux has
+# extended-keys on, and the .tmux fork carries upstream fixes (#804, #805)
+# about extended-key detection misbehaving on terminals that mishandle it.
+#
+# set -g extended-keys off
+
+# ---------------------------------------------------------------------------
+# Experiment 2: no passthrough, no clipboard writes
+#
+# Both send data outward to the terminal and take replies back. Turning them
+# off costs OSC 52 copying, so only run this one if experiment 1 comes back
+# clean and the crashes continue.
+#
+# set -g allow-passthrough off
+# set -s set-clipboard off
+
+# ---------------------------------------------------------------------------
+# Experiment 3: a newer tmux
+#
+# Ubuntu ships tmux 3.4, released in 2023, and the archive has nothing newer.
+# tmux 3.7c installs without root:
+#
+#   mise use -g tmux@3.7c
+#
+# Two things to know before switching. The 3.4 build here has sixel support
+# compiled in and the 3.7c build does not, so if the fault involves image data
+# reaching tmux, upgrading removes that code path entirely. And the gpakosz
+# configuration in tmux-omt does not load under 3.7c at all, so the submodule
+# has to be updated to a version that supports it first. Check with:
+#
+#   tmux show -gv @plugin     # 'invalid option' means the config did not load
+#
+# There is no tmux setting for this experiment. It is a different binary.

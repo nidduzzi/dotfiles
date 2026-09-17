@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=IBM+Plex+Sans:wght@400;600&display=swap">
+  <style>
+    body { margin: 0; font-family: "JetBrains Mono", ui-monospace, monospace; }
+    a { color: #7dcfff; } a:hover { color: #b4f9f8; }
+  </style>
+</helmet>
+<div style="background: #16161e; color: #c0caf5; width: 900px; min-height: 600px; padding: 32px 34px; display: flex; flex-direction: column; gap: 22px">
+
+  <div style="display: flex; flex-direction: column; gap: 6px">
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #565f89">Constraint</div>
+    <div style="font-size: 23px; font-weight: 700">Which keys are actually free</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13.5px; color: #9aa5ce; max-width: 70ch">Read out of snacks' own defaults rather than assumed. Three of the keys in use today were taken from something that already worked.</div>
+  </div>
+
+  <div style="background: #1a1b26; border: 1px solid #f7768e; border-radius: 6px; padding: 18px; display: flex; flex-direction: column; gap: 11px">
+    <div style="font-size: 12px; letter-spacing: 0.12em; color: #f7768e">TAKEN FROM SOMETHING THAT WORKED</div>
+    <div style="display: grid; grid-template-columns: 92px 150px 1fr; gap: 8px 14px; font-size: 12.5px">
+      <div style="color: #c0caf5">&lt;a-d&gt;</div><div style="color: #ff9e64">inspect</div><div style="color: #9aa5ce">used for cycling the docs filter</div>
+      <div style="color: #c0caf5">&lt;a-p&gt;</div><div style="color: #ff9e64">toggle preview</div><div style="color: #9aa5ce">used for choosing a preset</div>
+      <div style="color: #c0caf5">&lt;leader&gt;sD</div><div style="color: #ff9e64">workspace diagnostics</div><div style="color: #9aa5ce">taken for docs-only grep, already returned</div>
+      <div style="color: #c0caf5">&lt;leader&gt;?</div><div style="color: #ff9e64">which-key, buffer keys</div><div style="color: #9aa5ce">now shares the picker rather than replacing it</div>
+    </div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px">
+    <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 11.5px; letter-spacing: 0.12em; color: #9ece6a">FREE INSIDE THE PICKER</div>
+      <div style="font-size: 12.5px; color: #a9b1d6; line-height: 1.9">
+        &lt;a-a&gt; &lt;a-b&gt; &lt;a-c&gt; &lt;a-e&gt; &lt;a-g&gt; &lt;a-j&gt; &lt;a-k&gt;<br>
+        &lt;a-l&gt; &lt;a-n&gt; &lt;a-o&gt; &lt;a-q&gt; &lt;a-s&gt; &lt;a-t&gt; &lt;a-u&gt;<br>
+        &lt;a-v&gt; &lt;a-x&gt; &lt;a-y&gt; &lt;a-z&gt; &lt;a-G&gt; &lt;a-S&gt;
+      </div>
+    </div>
+    <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 10px">
+      <div style="font-size: 11.5px; letter-spacing: 0.12em; color: #7dcfff">SPOKEN FOR, LEAVE ALONE</div>
+      <div style="display: grid; grid-template-columns: 80px 1fr; gap: 6px 12px; font-size: 12.5px; color: #a9b1d6">
+        <div style="color: #c0caf5">&lt;c-g&gt;</div><div>live or fuzzy</div>
+        <div style="color: #c0caf5">&lt;a-r&gt;</div><div>regex or fixed</div>
+        <div style="color: #c0caf5">&lt;a-h&gt;</div><div>hidden files</div>
+        <div style="color: #c0caf5">&lt;a-i&gt;</div><div>ignored files</div>
+        <div style="color: #c0caf5">&lt;a-f&gt;</div><div>follow symlinks</div>
+        <div style="color: #c0caf5">&lt;a-m&gt;</div><div>maximise</div>
+        <div style="color: #c0caf5">&lt;c-t&gt;</div><div>send to the tree</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="background: #1a1b26; border: 1px solid #2c2f45; border-radius: 6px; padding: 16px; display: flex; flex-direction: column; gap: 9px">
+    <div style="font-size: 11.5px; letter-spacing: 0.12em; color: #bb9af7">THE ONE REAL COST OF THE TAB PIVOT</div>
+    <div style="font-family: 'IBM Plex Sans', sans-serif; font-size: 13px; color: #9aa5ce; line-height: 1.6">&lt;Tab&gt; is snacks' select-and-next, which is how you pick several results at once. Moving it to &lt;c-Space&gt; is the price of the pivot. Worth asking whether multi-select earns the better key: in the tour it was never once used.</div>
+  </div>
+
+</div>
+</x-dc>
+</body>
+</html>

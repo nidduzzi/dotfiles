@@ -26,6 +26,7 @@
 #   -d DIR    working directory       -o DIR   where frames are written
 #   -W COLS   pane width              -H ROWS  pane height
 #   -w SECS   readiness timeout       -p SECS  pause after each batch
+#   -P SECS   pause after a `slow:` batch, for a key that starts a request
 #   -t        trust the project's .nvim.lua
 #   -T TEXT   title for this film
 #
@@ -34,6 +35,18 @@
 #
 # A batch written as `keys:a b c` sends those keys together with no pause, for
 # a sequence that has to arrive as one mapping rather than as separate presses.
+#
+# A batch written as `slow:<batch>` starts a request and waits for the answer
+# instead of for the clock: the editor is asked over RPC whether the agent is
+# still running, and the frame is captured once it is not. -P is the cap, not
+# the wait.
+#
+# Both halves of that matter. A fixed pause was wrong in both directions — a
+# local 35B answered a hint in 151 seconds against a 150 second pause, so the
+# film recorded an empty screen and looked like a broken feature; and every
+# faster answer sat idle for the rest of the pause, which is how a nine-film
+# tour came to take two hours to record the eight frames that needed to wait.
+# It composes: `slow:keys:Space ar` is both.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -46,10 +59,11 @@ COLS=120
 ROWS=34
 BOOT_WAIT=60
 KEY_WAIT=1.5
+SLOW_WAIT=""
 TRUST=0
 TITLE="Neovim"
 
-while getopts "c:n:d:o:W:H:w:p:T:t" opt; do
+while getopts "c:n:d:o:W:H:w:p:P:T:t" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -59,12 +73,15 @@ while getopts "c:n:d:o:W:H:w:p:T:t" opt; do
     H) ROWS="$OPTARG" ;;
     w) BOOT_WAIT="$OPTARG" ;;
     p) KEY_WAIT="$OPTARG" ;;
+    P) SLOW_WAIT="$OPTARG" ;;
     T) TITLE="$OPTARG" ;;
     t) TRUST=1 ;;
     *) exit 2 ;;
   esac
 done
 shift $((OPTIND - 1))
+
+: "${SLOW_WAIT:=$KEY_WAIT}"
 
 command -v tmux >/dev/null || { echo "tmux is required" >&2; exit 1; }
 command -v nvim >/dev/null || { echo "nvim is required" >&2; exit 1; }
@@ -146,7 +163,33 @@ capture() { # label
 # The opening frame: what the editor looked like before anything was pressed.
 capture "before"
 
+# Wait until the agent has stopped running, or until the cap. Polled over RPC
+# rather than slept, for the reason in the header.
+await_agent() {
+  local deadline=$((SECONDS + ${SLOW_WAIT%.*} + 1))
+  # Let the key be seen before asking: a request that has not started yet
+  # reports "not running", which is indistinguishable from one that finished.
+  sleep 2
+  while (( SECONDS < deadline )); do
+    local state
+    state=$(nvim --server "$RPC" --remote-expr \
+      'luaeval("(pcall(require, \"util.agent\") and require(\"util.agent\").is_running()) and 1 or 0")' 2>/dev/null)
+    [[ "$state" == "0" ]] && break
+    sleep 1
+  done
+  # The answer arrives, then the window that shows it is opened on the next
+  # tick. Capturing between the two records the buffer with nothing over it.
+  sleep 1.5
+}
+
 for batch in "$@"; do
+  wait_for="$KEY_WAIT"
+  slow=0
+  if [[ "$batch" == slow:* ]]; then
+    slow=1
+    batch="${batch#slow:}"
+  fi
+
   if [[ "$batch" == ex:* ]]; then
     nvim --server "$RPC" --remote-expr "execute('${batch#ex:}')" >/dev/null 2>&1 || true
     label=":${batch#ex:}"
@@ -168,7 +211,11 @@ for batch in "$@"; do
     tm send-keys "$batch"
     label="$batch"
   fi
-  sleep "$KEY_WAIT"
+  if [[ "$slow" -eq 1 ]]; then
+    await_agent
+  else
+    sleep "$wait_for"
+  fi
   capture "$label"
 done
 

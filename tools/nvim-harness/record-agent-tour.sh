@@ -129,9 +129,15 @@ film 05-lookup "Looking something up" \
   "The rung that makes you faster rather than the one that makes you think. Remembering an argument order was never the skill." \
   "${OPEN[@]}" "${SWITCH[@]}" 'Space' 'al' 'python bisect insort' 'slow:Enter'
 
+# A real error, not the absence of one. Recorded on stats/models.py, where
+# ruff reports `Cannot use \`type\` alias statement on Python 3.10` — a genuine
+# version mismatch in this checkout, and the kind of message whose cause is not
+# on the line it points at. The film used to run on a clean function, so the
+# panel came back titled "What this does": it demonstrated the other half of
+# this key and called it the error half.
 film 06-explain "What this error means" \
-  "With a diagnostic under the cursor it explains that instead, because that is almost always the question." \
-  "${OPEN[@]}" "${AT_FUNCTION[@]}" "${SWITCH[@]}" 'Space' 'slow:ax'
+  "With a diagnostic under the cursor it explains that instead, because that is almost always the question. <leader>cd puts the error on screen first, so what the agent was given is visible before what it answered. The diagnostic goes into the prompt with the surrounding lines — the agent runs with no tools and reads nothing itself, so everything it sees is assembled here." \
+  'Space' 'ff' 'stats/models' 'Enter' '19G' "${SWITCH[@]}" 'Space' 'cd' 'Space' 'slow:ax'
 
 film 07-switch "Choosing which agent answers" \
   "<leader>au lists the ones this machine can actually run — Codex is defined and absent from the list because it is not on PATH, since a CLI-driven agent has no API to fall back to. Claude Code, Hermes and Codex differ in how they go headless and how they are stopped from writing, and one that has not been shown to refuse a write is refused rather than warned about." \

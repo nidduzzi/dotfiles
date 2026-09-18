@@ -110,8 +110,8 @@ film 00-settings "Which settings are in force, and from where" \
   "${OPEN[@]}" 'Space' 'a?'
 
 film 01-review "A review you have to type your way out of" \
-  "Findings arrive as diagnostics, so ]d walks them and you fix them by typing, and a picker lists them because diagnostics answer \"what is wrong here\" and not \"what did it find\". Nothing is applied, and there is no key here that edits a buffer." \
-  "${OPEN[@]}" "${AT_FUNCTION[@]}" "${SWITCH[@]}" 'Space' 'slow:ar'
+  "Findings arrive as diagnostics, so ]d walks them and you fix them by typing, and a picker lists them because diagnostics answer \"what is wrong here\" and not \"what did it find\". The list truncates a finding to its column; Enter jumps to the line and the whole thing appears under it, wrapped. Nothing is applied, and there is no key here that edits a buffer." \
+  "${OPEN[@]}" "${AT_FUNCTION[@]}" "${SWITCH[@]}" 'Space' 'slow:ar' 'Enter'
 
 film 02-scope "Widening what gets reviewed" \
   "The same shape as the grep filter: one key moves the scope out from this function to the file to only what you changed. It is a-s here rather than <leader>as, because the findings list owns the keyboard while it is open — <leader>as is the same thing from the buffer, once it is closed." \

@@ -156,15 +156,18 @@ PAGE = """<title>{title}</title>
     display: flex;
     align-items: baseline;
     gap: 7px;
+    max-width: 82vw;
     background: var(--panel);
     color: var(--ink);
     border: 1px solid var(--edge);
     border-radius: 999px;
     padding: 6px 14px;
     cursor: pointer;
-    white-space: nowrap;
+    white-space: normal;
+    text-align: left;
   }}
   .film-pick .no {{
+    flex: 0 0 auto;
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.72rem;
     color: var(--dim);
@@ -255,6 +258,10 @@ PAGE = """<title>{title}</title>
     padding: 7px 10px;
     cursor: pointer;
     min-width: 88px;
+    /* A key sequence is the point of the cel, so it is never cut. Long ones —
+       an Ex command used to set a scene — wrap onto a second line instead of
+       running past the edge, which on a phone hid the end of every one. */
+    max-width: min(320px, 74vw);
   }}
   .cel:hover {{ border-color: var(--accent); }}
   .cel[aria-current="true"] {{
@@ -271,7 +278,9 @@ PAGE = """<title>{title}</title>
     font-family: "IBM Plex Mono", ui-monospace, monospace;
     font-size: 0.8rem;
     color: var(--accent);
-    white-space: nowrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-align: left;
   }}
 
   .foot {{

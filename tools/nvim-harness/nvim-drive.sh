@@ -170,6 +170,19 @@ for batch in "$@"; do
     # showing something other than what was asked for.
     nvim --server "$RPC" --remote-send "<C-\><C-N>" 2>/dev/null || true
     nvim --server "$RPC" --remote-expr "execute('${batch#ex:}')" >/dev/null 2>&1 || true
+  elif [[ "$batch" == keys:* ]]; then
+    # Several keys together, with no pause between them. A leader sequence sent
+    # as separate batches has seconds between its keys, and a mapping split
+    # that far apart is not the mapping — `Space` then `?` a second later is a
+    # space and a reverse search, not <leader>?.
+    # Split on spaces with globbing off. Unquoted expansion looked simpler and
+    # was wrong: `?` and `*` are key names to tmux and glob characters to the
+    # shell, so `keys:Space ?` could expand to a filename before tmux saw it.
+    set -f
+    # shellcheck disable=SC2086
+    read -r -a _keys <<< "${batch#keys:}"
+    set +f
+    tm send-keys "${_keys[@]}"
   else
     tm send-keys "$batch"
   fi

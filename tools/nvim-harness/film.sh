@@ -31,6 +31,9 @@
 #
 # A batch written as `ex:<command>` is sent over RPC as an Ex command, which is
 # the reliable way to set a scene before the part being demonstrated.
+#
+# A batch written as `keys:a b c` sends those keys together with no pause, for
+# a sequence that has to arrive as one mapping rather than as separate presses.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -147,6 +150,20 @@ for batch in "$@"; do
   if [[ "$batch" == ex:* ]]; then
     nvim --server "$RPC" --remote-expr "execute('${batch#ex:}')" >/dev/null 2>&1 || true
     label=":${batch#ex:}"
+  elif [[ "$batch" == keys:* ]]; then
+    # Several keys delivered together, with no pause between them. A leader
+    # sequence sent as separate batches has seconds between its keys, and a
+    # mapping split that far apart is not the mapping — `Space` then `?` a
+    # second later is not <leader>?, it is a space and a reverse search.
+    # Split on spaces with globbing off. Unquoted expansion looked simpler and
+    # was wrong: `?` and `*` are key names to tmux and glob characters to the
+    # shell, so `keys:Space ?` could expand to a filename before tmux saw it.
+    set -f
+    # shellcheck disable=SC2086
+    read -r -a _keys <<< "${batch#keys:}"
+    set +f
+    tm send-keys "${_keys[@]}"
+    label="${batch#keys:}"
   else
     tm send-keys "$batch"
     label="$batch"

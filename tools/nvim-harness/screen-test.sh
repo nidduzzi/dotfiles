@@ -5,6 +5,12 @@
 #   screen-test.sh [-d TESTS_DIR] [-c CONFIG] [-n APPNAME] [-u] [NAME ...]
 #
 #   -u   rewrite the .expected files from what was drawn
+#   -l   also run tests marked `# needs: lsp`
+#   -t N attempts before a screen is called changed. Default 3.
+#
+# A screen is asserted to eventually match, not to match on the first try, the
+# way Neovim's own Screen:expect retries until its timeout. Diagnostics and
+# hover arrive when the language server answers, which is not on a schedule.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -14,13 +20,17 @@ APPNAME="${NVIM_TOUR_APPNAME:-nvim-lazyvim}"
 TESTS_DIR="$CONFIG_ROOT/$APPNAME/tests/screen"
 NORMALISE="$HERE/screen-normalise.sed"
 UPDATE=0
+WITH_LSP=0
+ATTEMPTS=3
 
-while getopts "d:c:n:u" opt; do
+while getopts "d:c:n:ult:" opt; do
   case "$opt" in
     d) TESTS_DIR="$OPTARG" ;;
     c) CONFIG_ROOT="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
     u) UPDATE=1 ;;
+    l) WITH_LSP=1 ;;
+    t) ATTEMPTS="$OPTARG" ;;
     *) exit 2 ;;
   esac
 done
@@ -58,7 +68,7 @@ capture() {
 
   "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$workdir" \
-    -t -w 90 -p 2 -W "$cols" -H "$rows" \
+    -t -I -w 90 -p 2 -W "$cols" -H "$rows" \
     "${batches[@]}" 2>/dev/null | normalise > "$out"
 }
 
@@ -84,30 +94,40 @@ while IFS= read -r keys_file; do
   actual="$(mktemp)"
 
   printf '%-28s ' "$name"
-  capture "$keys_file" "$actual"
+
+  needs="$(read_directive "$keys_file" needs "")"
+  if [[ "$needs" == "lsp" && "$WITH_LSP" -ne 1 ]]; then
+    echo "skipped, needs a language server (-l to run)"
+    rm -f "$actual"
+    continue
+  fi
+
   checked=$((checked + 1))
 
-  if [[ "$UPDATE" -eq 1 ]]; then
+  if [[ "$UPDATE" -eq 1 || ! -f "$expected" ]]; then
+    capture "$keys_file" "$actual"
     mv "$actual" "$expected"
-    echo "updated"
+    [[ "$UPDATE" -eq 1 ]] && echo "updated" || echo "created"
     continue
   fi
 
-  if [[ ! -f "$expected" ]]; then
-    mv "$actual" "$expected"
-    echo "created"
-    continue
-  fi
+  attempts="$(read_directive "$keys_file" attempts "$ATTEMPTS")"
+  matched=0
+  for attempt in $(seq 1 "$attempts"); do
+    capture "$keys_file" "$actual"
+    if diff -q "$expected" "$actual" >/dev/null; then
+      matched=1
+      [[ "$attempt" -eq 1 ]] && echo "ok" || echo "ok, on attempt $attempt"
+      break
+    fi
+  done
 
-  if diff -q "$expected" "$actual" >/dev/null; then
-    echo "ok"
-    rm -f "$actual"
-  else
-    echo "CHANGED"
+  if [[ "$matched" -eq 0 ]]; then
+    echo "CHANGED, after $attempts attempts"
     diff -u --label "$name.expected" --label "$name.drawn" "$expected" "$actual" || true
-    rm -f "$actual"
     failed=$((failed + 1))
   fi
+  rm -f "$actual"
 done < <(selected "$@")
 
 echo

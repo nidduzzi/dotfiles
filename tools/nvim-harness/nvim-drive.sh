@@ -20,6 +20,9 @@
 #   -k        Keep the tmux server alive after capturing, for manual poking.
 #   -t        Trust the working directory's .nvim.lua before starting, so the
 #             exrc prompt does not swallow the keys meant for the editor.
+#   -I        Start with -i NONE, so nothing is read from or written to shada.
+#             A run that remembers where the cursor was last time is a run
+#             whose result depends on the run before it.
 #
 # -w is now a timeout rather than a delay: the editor is asked whether it is
 # ready, over its own RPC socket, and the keys go the moment it says yes.
@@ -49,8 +52,9 @@ OUTFILE=""
 CAPTURE_ANSI=0
 KEEP=0
 TRUST=0
+NO_SHADA=0
 
-while getopts "c:n:d:s:W:H:w:p:o:ekt" opt; do
+while getopts "c:n:d:s:W:H:w:p:o:ektI" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -64,6 +68,7 @@ while getopts "c:n:d:s:W:H:w:p:o:ekt" opt; do
     e) CAPTURE_ANSI=1 ;;
     k) KEEP=1 ;;
     t) TRUST=1 ;;
+    I) NO_SHADA=1 ;;
     *) exit 2 ;;
   esac
 done
@@ -132,6 +137,7 @@ launch="env $launch"
 RPC="${TMPDIR:-/tmp}/nvim-drive-$$.sock"
 rm -f "$RPC"
 launch="$launch --listen $RPC"
+[[ "$NO_SHADA" -eq 1 ]] && launch="$launch -i NONE"
 
 tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"
 

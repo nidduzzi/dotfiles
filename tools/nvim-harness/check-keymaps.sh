@@ -74,18 +74,60 @@ NVIM_KEYMAP_AUDIT="$OUT/audit.txt" "$HERE/nvim-drive.sh" \
   ":lua vim.env.NVIM_KEYMAP_AUDIT='$OUT/audit.txt' dofile('$HERE/keymap-audit.lua')" 'Enter' \
   >/dev/null 2>&1 || true
 
+# Both of these used to print and move on, so a dead key and a clean run were
+# the same exit status. They are faults like the other two, and they fail here
+# now, with an allowlist for the ones that are someone else's decision.
+#
+# The allowlist is matched as a fixed substring of the reported line, one per
+# line, blank lines and # comments ignored — the same shape as
+# expected-collisions.txt, and the same rule: every entry needs a reason.
+ALLOWED="$HERE/expected-dead-keys.txt"
+
+# Drop the allowed lines out of a report, leaving what is news.
+unexpected() {
+  if [[ -f "$ALLOWED" ]]; then
+    grep -vxF -f <(grep -v '^\s*#' "$ALLOWED" | grep -v '^\s*$') || true
+  else
+    cat
+  fi
+}
+
 if [[ -s "$OUT/audit.txt" ]]; then
   # Vim's own undescribed built-ins are hidden from the hints, so they are not
   # the fault this is looking for.
-  grep -E "DEAD|EMPTY|names code" "$OUT/audit.txt" | grep -v "Plug" || echo "none"
+  # `|| true` on every grep: finding nothing is the good outcome here, and a
+  # grep that matches nothing exits 1, which under `set -e` killed the script
+  # before it could say so.
+  dead="$( { grep -E "DEAD|EMPTY|names code" "$OUT/audit.txt" || true; } | { grep -v "Plug" || true; } | unexpected)"
+  if [[ -n "$dead" ]]; then
+    printf '%s\n' "$dead"
+    echo
+    echo "$(printf '%s\n' "$dead" | wc -l) key(s) are bound, appear in the hints, and do nothing"
+    echo "or describe nothing. Fix them, or add them to $(basename "$ALLOWED") with a reason."
+    status=1
+  else
+    echo "none"
+  fi
 
   echo
   echo "== single keys a plugin took over without describing =="
   # flash.nvim takes f, F, t and T. They answer to nothing — not which-key, not
   # the capability list — so "what does t do" had no answer in the editor.
-  grep -E "^TAKEN" "$OUT/audit.txt" || echo "none"
+  taken="$( { grep -E "^TAKEN" "$OUT/audit.txt" || true; } | unexpected)"
+  if [[ -n "$taken" ]]; then
+    printf '%s\n' "$taken"
+    echo
+    echo "A single key was taken over without a description. Describe it, or add"
+    echo "it to $(basename "$ALLOWED") with a reason."
+    status=1
+  else
+    echo "none"
+  fi
 else
   echo "audit did not run"
+  # An audit that did not run has proven nothing, which is not the same as
+  # having found nothing.
+  status=1
 fi
 
 echo

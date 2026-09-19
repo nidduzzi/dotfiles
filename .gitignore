@@ -17,6 +17,9 @@ tmux-local/.config/tmux/local/*
 
 # Harness scratch: trial Neovim configs pull in plugins, and the fixture repo
 # is regenerated on demand.
+# The fixture holds a git repository of its own, so it cannot be committed as
+# plain files. tools/nvim-harness/make-fixture.sh generates it instead, which
+# is what makes the two gates that default to it work on a fresh clone.
 tools/nvim-harness/fixture/
 tools/nvim-harness/trials/*/lazy-lock.json
 __pycache__/

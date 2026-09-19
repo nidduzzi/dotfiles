@@ -12,7 +12,7 @@ editor's state, and a view showing a third of it shows nothing. The scale is a
 transform, so the text stays text.
 
 Usage:
-    build-tour.py --dir BASE --out PAGE.html [--artifact] [--title TITLE]
+    build-tour.py --dir BASE --out PAGE.html [--title TITLE]
 
 BASE holds one subdirectory per film, each as film.sh left it.
 """

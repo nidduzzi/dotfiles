@@ -62,6 +62,14 @@ jobs:
           nvim --headless -c 'lua require("nvim-treesitter").install({ "lua", "python", "javascript", "markdown", "markdown_inline", "bash", "json", "vim", "vimdoc", "query" }):wait(600000)' +qa
           nvim --headless -c 'lua local have = require("nvim-treesitter.config").get_installed("parsers") print(table.concat(have, " "))' +qa
 
+      - name: the language server the screens need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless -c 'lua local p = require("mason-registry").get_package("lua-language-server") p:install() vim.wait(600000, function() return p:is_installed() end, 1000)' +qa
+          nvim --headless -c 'lua print("lua_ls: " .. tostring(vim.fn.exepath("lua-language-server")))' +qa
+
       - run: tools/nvim-harness/make-fixture.sh --force
 
       - run: tools/nvim-harness/check-syntax.sh
@@ -74,7 +82,7 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/screen-test.sh
+        run: tools/nvim-harness/screen-test.sh -l
 
       - if: failure()
         uses: actions/upload-artifact@v4

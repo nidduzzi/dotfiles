@@ -1,0 +1,48 @@
+# Keys that are bound without a description, and are allowed to be.
+#
+# check-keymaps.sh fails on a key that is bound, appears in the hints, and
+# describes nothing — because "what does t do" should have an answer in the
+# editor. These are the ones where the answer is "someone else decided that",
+# and the config already compensates.
+#
+# Matched as whole lines against the audit report. Every entry needs a reason.
+# An entry that stops matching is not an error; it just stops being needed.
+
+# matchit, a built-in plugin, extends % to language pairs. Vim has shipped it
+# undescribed since forever and hides it from the hints.
+TAKEN %    n  global  no description <Plug>(MatchitNormalForward)
+TAKEN %    o  global  no description <Plug>(MatchitOperationForward)
+TAKEN %    x  global  no description <Plug>(MatchitVisualForward)
+
+# LazyVim breaks the undo sequence at punctuation so an undo does not swallow a
+# whole paragraph. Insert-mode only, and invisible by design.
+TAKEN ,    i  global  no description ,<C-G>u
+TAKEN .    i  global  no description .<C-G>u
+TAKEN ;    i  global  no description ;<C-G>u
+
+# LazyVim keeps the selection after indenting, which is what everyone expects
+# > to do and nobody would describe.
+TAKEN >    x  global  no description >gv
+
+# flash.nvim: f F t T jump by label, and , ; repeat the jump. These are the six
+# this config writes descriptions for itself — see the "Jumping by label"
+# entry in lua/util/capabilities.lua, which exists precisely because the
+# plugin leaves them blank.
+TAKEN ,    n  global  no description <lua callback>
+TAKEN ,    o  global  no description <lua callback>
+TAKEN ,    x  global  no description <lua callback>
+TAKEN ;    n  global  no description <lua callback>
+TAKEN ;    o  global  no description <lua callback>
+TAKEN ;    x  global  no description <lua callback>
+TAKEN F    n  global  no description <lua callback>
+TAKEN F    o  global  no description <lua callback>
+TAKEN F    x  global  no description <lua callback>
+TAKEN T    n  global  no description <lua callback>
+TAKEN T    o  global  no description <lua callback>
+TAKEN T    x  global  no description <lua callback>
+TAKEN f    n  global  no description <lua callback>
+TAKEN f    o  global  no description <lua callback>
+TAKEN f    x  global  no description <lua callback>
+TAKEN t    n  global  no description <lua callback>
+TAKEN t    o  global  no description <lua callback>
+TAKEN t    x  global  no description <lua callback>

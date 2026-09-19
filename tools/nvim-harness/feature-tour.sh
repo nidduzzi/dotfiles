@@ -125,6 +125,7 @@ echo "output:   $OUT_DIR"
 echo
 
 declare -a CAPTURED=()
+declare -a FAILURES=()
 
 for scenario in "${SCENARIOS[@]}"; do
   IFS='|' read -r -a parts <<<"$scenario"
@@ -155,6 +156,7 @@ for scenario in "${SCENARIOS[@]}"; do
     echo "captured"
   else
     echo "FAILED"
+    FAILURES+=("$name")
   fi
 done
 
@@ -171,3 +173,15 @@ python3 "$HERE/build-contact-sheet.py" \
 
 echo
 echo "Open $OUT_DIR/index.html"
+
+# A scenario that could not be captured is a scenario that did not work, and
+# this used to print FAILED and exit 0 — so a broken key read the same as a
+# clean run to anything checking the exit status. The contact sheet is still
+# built either way, because the frames that did capture are worth looking at
+# while the failure is being fixed.
+if [[ ${#FAILURES[@]} -gt 0 ]]; then
+  echo
+  echo "${#FAILURES[@]} of $((${#CAPTURED[@]} + ${#FAILURES[@]})) scenarios failed:"
+  printf '  %s\n' "${FAILURES[@]}"
+  exit 1
+fi

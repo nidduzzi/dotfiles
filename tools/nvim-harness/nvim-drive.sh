@@ -20,6 +20,8 @@
 #   -k        Keep the tmux server alive after capturing, for manual poking.
 #   -t        Trust the working directory's .nvim.lua before starting, so the
 #             exrc prompt does not swallow the keys meant for the editor.
+#   -F        Trust a .nvim.lua outside this harness. It is Lua the project
+#             wrote, and trusting it runs it.
 #   -I        Start with -i NONE, so nothing is read from or written to shada.
 #             A run that remembers where the cursor was last time is a run
 #             whose result depends on the run before it.
@@ -37,6 +39,8 @@
 #   nvim-drive.sh -c ~/dotfiles/neovim/.config -e -o out.ansi 'Space' 'sg' 'fn'
 set -Eeuo pipefail
 
+HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 CONFIG_DIR=""
 APPNAME=""
 WORKDIR=""
@@ -52,9 +56,10 @@ OUTFILE=""
 CAPTURE_ANSI=0
 KEEP=0
 TRUST=0
+FORCE_TRUST=0
 NO_SHADA=0
 
-while getopts "c:n:d:s:W:H:w:p:o:ektI" opt; do
+while getopts "c:n:d:s:W:H:w:p:o:ektIF" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -69,6 +74,7 @@ while getopts "c:n:d:s:W:H:w:p:o:ektI" opt; do
     k) KEEP=1 ;;
     t) TRUST=1 ;;
     I) NO_SHADA=1 ;;
+    F) FORCE_TRUST=1 ;;
     *) exit 2 ;;
   esac
 done
@@ -103,10 +109,20 @@ fi
 # before the editor is ready, so any keys this script sends would answer the
 # prompt instead of reaching the editor. Record the trust decision up front.
 if [[ "$TRUST" -eq 1 && -f "$WORKDIR/.nvim.lua" ]]; then
-  env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
-    nvim --headless -u NONE \
-    +"lua vim.secure.trust({ action = 'allow', path = '$WORKDIR/.nvim.lua' })" \
-    +qa 2>/dev/null || echo "Could not pre-trust $WORKDIR/.nvim.lua" >&2
+  # .nvim.lua is Lua the repository wrote, and trusting it runs it. The prompt
+  # Neovim shows is the only thing standing between a clone and that, so this
+  # answers it only for the fixture, which this repository generates.
+  workdir_real="$(cd "$WORKDIR" && pwd)"
+  if [[ "$workdir_real" == "$HARNESS"/* || "$FORCE_TRUST" -eq 1 ]]; then
+    env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
+      nvim --headless -u NONE \
+      +"lua vim.secure.trust({ action = 'allow', path = '$WORKDIR/.nvim.lua' })" \
+      +qa 2>/dev/null || echo "Could not pre-trust $WORKDIR/.nvim.lua" >&2
+  else
+    echo "Refusing to trust $workdir_real/.nvim.lua without -F." >&2
+    echo "It is Lua from that project, and trusting it runs it." >&2
+    exit 3
+  fi
 fi
 
 launch="nvim"
@@ -118,8 +134,11 @@ launch="nvim"
 # so without this Hermes falls back to whatever its config names and answers
 # `HTTP 401: Unauthorized` — which the review then reported as "Nothing found",
 # because a failed request and a clean function looked the same.
+# ANTHROPIC_API_KEY is deliberately not forwarded. Nothing here drives an
+# API, and a key in the environment is a key any program the editor starts can
+# read — which is exactly how the project-binary canary captured one.
 for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
-            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL ANTHROPIC_API_KEY; do
+            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL; do
   if [[ -n "${!name:-}" ]]; then
     launch="$name=$(printf '%q' "${!name}") $launch"
   fi

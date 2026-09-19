@@ -27,7 +27,8 @@
 #   -W COLS   pane width              -H ROWS  pane height
 #   -w SECS   readiness timeout       -p SECS  pause after each batch
 #   -P SECS   pause after a `slow:` batch, for a key that starts a request
-#   -t        trust the project's .nvim.lua
+#   -t        trust the project's .nvim.lua, inside this harness only
+#   -F        trust one outside it, which runs Lua the project wrote
 #   -T TEXT   title for this film
 #
 # A batch written as `ex:<command>` is sent over RPC as an Ex command, which is
@@ -61,9 +62,10 @@ BOOT_WAIT=60
 KEY_WAIT=1.5
 SLOW_WAIT=""
 TRUST=0
+FORCE_TRUST=0
 TITLE="Neovim"
 
-while getopts "c:n:d:o:W:H:w:p:P:T:t" opt; do
+while getopts "c:n:d:o:W:H:w:p:P:T:tF" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -76,6 +78,7 @@ while getopts "c:n:d:o:W:H:w:p:P:T:t" opt; do
     P) SLOW_WAIT="$OPTARG" ;;
     T) TITLE="$OPTARG" ;;
     t) TRUST=1 ;;
+    F) FORCE_TRUST=1 ;;
     *) exit 2 ;;
   esac
 done
@@ -106,10 +109,18 @@ if [[ -n "$APPNAME" ]]; then
 fi
 
 if [[ "$TRUST" -eq 1 && -f "$WORKDIR/.nvim.lua" ]]; then
-  env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
-    nvim --headless -u NONE \
-    +"lua vim.secure.trust({ action = 'allow', path = '$WORKDIR/.nvim.lua' })" \
-    +qa 2>/dev/null || true
+  # .nvim.lua is Lua the repository wrote, and trusting it runs it. Answered
+  # here only for the fixture, which this repository generates.
+  workdir_real="$(cd "$WORKDIR" && pwd)"
+  if [[ "$workdir_real" == "$HERE"/* || "$FORCE_TRUST" -eq 1 ]]; then
+    env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
+      nvim --headless -u NONE \
+      +"lua vim.secure.trust({ action = 'allow', path = '$WORKDIR/.nvim.lua' })" \
+      +qa 2>/dev/null || true
+  else
+    echo "Refusing to trust $workdir_real/.nvim.lua without -F." >&2
+    exit 3
+  fi
 fi
 
 launch="nvim"
@@ -121,8 +132,11 @@ launch="nvim"
 # so without this Hermes falls back to whatever its config names and answers
 # `HTTP 401: Unauthorized` — which the review then reported as "Nothing found",
 # because a failed request and a clean function looked the same.
+# ANTHROPIC_API_KEY is deliberately not forwarded. Nothing here drives an
+# API, and a key in the environment is a key any program the editor starts can
+# read — which is exactly how the project-binary canary captured one.
 for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
-            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL ANTHROPIC_API_KEY; do
+            HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL; do
   if [[ -n "${!name:-}" ]]; then
     launch="$name=$(printf '%q' "${!name}") $launch"
   fi

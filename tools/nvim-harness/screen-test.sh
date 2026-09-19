@@ -152,6 +152,7 @@ while IFS= read -r keys_file; do
   if [[ "$matched" -eq 0 ]]; then
     echo "CHANGED, after $attempts attempts"
     diff -u --label "$name.expected" --label "$name.drawn" "$expected" "$actual" || true
+    cp "$actual" "$TESTS_DIR/$name.drawn"
     failed=$((failed + 1))
   fi
   rm -f "$actual"

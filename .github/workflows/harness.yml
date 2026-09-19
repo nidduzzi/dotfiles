@@ -48,6 +48,12 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: nvim --headless "+Lazy! restore" +qa
 
+      - name: install the parsers the fixture needs
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+TSInstallSync! lua python javascript markdown markdown_inline bash json" +qa
+
       - run: tools/nvim-harness/make-fixture.sh --force
 
       - run: tools/nvim-harness/check-syntax.sh

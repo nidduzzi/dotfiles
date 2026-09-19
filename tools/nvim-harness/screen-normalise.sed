@@ -5,6 +5,7 @@ s/[0-9][0-9]*\.[0-9][0-9]*ms/DURATIONms/g
 s/\([0-9][0-9]*\)\/\([0-9][0-9]*\) plugins/N\/N plugins/g
 s|/home/[a-z0-9_-]*|~|g
 s/⠋\|⠙\|⠹\|⠸\|⠼\|⠴\|⠦\|⠧\|⠇\|⠏/SPINNER/g
+s|\([0-9][0-9]*\)/[0-9][0-9]* │|\1/TOTAL │|
 s/.*Loading workspace.*//
 s/.*[0-9]\+%.*lua_ls.*//
 s/[[:space:]]*$//

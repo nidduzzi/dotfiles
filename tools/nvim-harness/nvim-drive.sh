@@ -18,6 +18,9 @@
 #   -o FILE   Write the captured pane to FILE as well as stdout.
 #   -e        Capture with ANSI escape sequences (needed for screenshots).
 #   -k        Keep the tmux server alive after capturing, for manual poking.
+#   A batch written as `wait:<seconds>:<batch>` waits that long after sending,
+#   for anything the editor does not announce the end of.
+#
 #   -t        Trust the working directory's .nvim.lua before starting, so the
 #             exrc prompt does not swallow the keys meant for the editor.
 #   -F        Trust a .nvim.lua outside this harness. It is Lua the project
@@ -84,6 +87,33 @@ command -v tmux >/dev/null || { echo "tmux is required" >&2; exit 1; }
 command -v nvim >/dev/null || { echo "nvim is required" >&2; exit 1; }
 
 tm() { tmux -L "$SOCKET" "$@"; }
+
+# tmux resolves an argument to a key name before treating it as text, and its
+# key names are short: DC is Delete, IC is Insert, and `dc` matches DC without
+# regard to case. `tmux send-keys dc` emits ^[[3~, so <leader>dc deleted a
+# character instead of starting the debugger, silently.
+#
+# So a batch is sent literally unless it names a key. The names recognised here
+# are the ones these scripts use; anything else is text.
+is_key_name() {
+  case "$1" in
+    Space|Enter|Escape|Tab|BSpace|BTab|Up|Down|Left|Right|Home|End|PageUp|PageDown|IC|DC|NPage|PPage) return 0 ;;
+    C-*|M-*|S-*|F[0-9]|F1[0-2]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+send_batch() {
+  local key
+  for key in "$@"; do
+    if is_key_name "$key"; then
+      tm send-keys "$key"
+    else
+      tm send-keys -l -- "$key"
+    fi
+  done
+}
+
 
 cleanup() {
   [[ "$KEEP" -eq 1 ]] && return 0
@@ -188,6 +218,13 @@ while (( SECONDS < lazy_deadline )); do
 done
 
 for batch in "$@"; do
+  wait_for="$KEY_WAIT"
+  if [[ "$batch" == wait:* ]]; then
+    wait_for="${batch#wait:}"
+    wait_for="${wait_for%%:*}"
+    batch="${batch#wait:*:}"
+  fi
+
   if [[ "$batch" == ex:* ]]; then
     # An Ex command, delivered over RPC instead of as keystrokes. Several `:`
     # commands sent as separate key batches concatenate into one command line
@@ -207,11 +244,11 @@ for batch in "$@"; do
     # shellcheck disable=SC2086
     read -r -a _keys <<< "${batch#keys:}"
     set +f
-    tm send-keys "${_keys[@]}"
+    send_batch "${_keys[@]}"
   else
-    tm send-keys "$batch"
+    send_batch "$batch"
   fi
-  sleep "$KEY_WAIT"
+  sleep "$wait_for"
 done
 
 if [[ "$CAPTURE_ANSI" -eq 1 ]]; then

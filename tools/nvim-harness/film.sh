@@ -37,6 +37,9 @@
 # A batch written as `keys:a b c` sends those keys together with no pause, for
 # a sequence that has to arrive as one mapping rather than as separate presses.
 #
+# A batch written as `wait:<seconds>:<batch>` waits that long before the frame
+# is captured, for anything the editor does not announce the end of.
+#
 # A batch written as `slow:<batch>` starts a request and waits for the answer
 # instead of for the clock: the editor is asked over RPC whether the agent is
 # still running, and the frame is captured once it is not. -P is the cap, not
@@ -94,6 +97,33 @@ SOCKET="nvim-film-$$"
 RPC="${TMPDIR:-/tmp}/nvim-film-$$.sock"
 
 tm() { tmux -L "$SOCKET" "$@"; }
+
+# tmux resolves an argument to a key name before treating it as text, and its
+# key names are short: DC is Delete, IC is Insert, and `dc` matches DC without
+# regard to case. `tmux send-keys dc` emits ^[[3~, so <leader>dc deleted a
+# character instead of starting the debugger, silently.
+#
+# So a batch is sent literally unless it names a key. The names recognised here
+# are the ones these scripts use; anything else is text.
+is_key_name() {
+  case "$1" in
+    Space|Enter|Escape|Tab|BSpace|BTab|Up|Down|Left|Right|Home|End|PageUp|PageDown|IC|DC|NPage|PPage) return 0 ;;
+    C-*|M-*|S-*|F[0-9]|F1[0-2]) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+send_batch() {
+  local key
+  for key in "$@"; do
+    if is_key_name "$key"; then
+      tm send-keys "$key"
+    else
+      tm send-keys -l -- "$key"
+    fi
+  done
+}
+
 cleanup() {
   tm kill-server 2>/dev/null || true
   rm -f "$RPC" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
@@ -202,6 +232,13 @@ for batch in "$@"; do
   if [[ "$batch" == slow:* ]]; then
     slow=1
     batch="${batch#slow:}"
+  elif [[ "$batch" == wait:* ]]; then
+    # Wait a stated number of seconds before capturing, for something the
+    # editor does not report as finished. `slow:` asks the agent whether it is
+    # still working; a debugger has no such question to answer.
+    wait_for="${batch#wait:}"
+    wait_for="${wait_for%%:*}"
+    batch="${batch#wait:*:}"
   fi
 
   if [[ "$batch" == ex:* ]]; then
@@ -219,10 +256,10 @@ for batch in "$@"; do
     # shellcheck disable=SC2086
     read -r -a _keys <<< "${batch#keys:}"
     set +f
-    tm send-keys "${_keys[@]}"
+    send_batch "${_keys[@]}"
     label="${batch#keys:}"
   else
-    tm send-keys "$batch"
+    send_batch "$batch"
     label="$batch"
   fi
   if [[ "$slow" -eq 1 ]]; then

@@ -80,6 +80,8 @@ jobs:
 
       - run: python3 tools/nvim-harness/rung-flags-match.py
 
+      - run: tools/nvim-harness/check-key-names.sh
+
       - name: screens
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

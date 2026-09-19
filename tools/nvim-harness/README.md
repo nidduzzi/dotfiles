@@ -97,6 +97,7 @@ line captures; everything below it decides.
 | `check-keymaps.sh` | a key taken from stock LazyVim, a key bound twice, a dead key, a key that describes nothing | the baseline trial |
 | `screen-test.sh` | a screen that no longer matches its committed copy | tmux, the fixture |
 | `rung-flags-match.py` | the agent canary proving flags the editor does not send | nothing |
+| `check-key-names.sh` | a key batch tmux would send as a key rather than as text | tmux |
 | `run-probes.sh -p PROJECT` | a blocking call over budget, or errors at startup | a project |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured | tmux, the fixture |
@@ -158,6 +159,7 @@ Anywhere else needs `-F`, and wanting `-F` is worth a second thought.
 | `keymap-collisions.py` | gate: this config against the baseline trial |
 | `screen-test.sh` | gate: screens match their committed copies |
 | `rung-flags-match.py` | gate: the canary proves the flags the editor sends |
+| `check-key-names.sh` | gate: no key batch is secretly a tmux key name |
 | `run-probes.sh` | gate: timings within budget, no startup errors |
 | `agent-canary.sh` | gate: an agent cannot write what its rung forbids |
 | `feature-tour.sh` | capture sixty scenarios onto one page |

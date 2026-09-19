@@ -100,7 +100,7 @@ export function login(user) {
 }
 EOF
 
-git init -q
+git init -q -b main
 git config user.email "fixture@example.invalid"
 git config user.name "Fixture"
 git add README.md docs openspec src

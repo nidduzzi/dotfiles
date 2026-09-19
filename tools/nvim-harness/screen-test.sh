@@ -8,6 +8,9 @@
 #   -l   also run tests marked `# needs: lsp`
 #   -t N attempts before a screen is called changed. Default 3.
 #
+# Per-test directives, as `# name: value` lines in the .keys file:
+#   dir, size, needs, attempts, pause
+#
 # A screen is asserted to eventually match, not to match on the first try, the
 # way Neovim's own Screen:expect retries until its timeout. Diagnostics and
 # hover arrive when the language server answers, which is not on a schedule.
@@ -37,6 +40,14 @@ done
 shift $((OPTIND - 1))
 
 CONFIG_ROOT="$(cd "$CONFIG_ROOT" && pwd)"
+
+# A panel that prints a path wraps where the path ends, and the path is a
+# different length on every machine. Reached through a fixed-length link, it
+# wraps in the same place everywhere.
+STABLE_CONFIG=/tmp/nvim-screen-cfg
+rm -f "$STABLE_CONFIG"
+ln -sfn "$CONFIG_ROOT" "$STABLE_CONFIG"
+CONFIG_ROOT="$STABLE_CONFIG"
 
 [[ -d "$TESTS_DIR" ]] || { echo "Not a directory: $TESTS_DIR" >&2; exit 2; }
 [[ -f "$NORMALISE" ]] || { echo "Missing $NORMALISE" >&2; exit 2; }
@@ -76,12 +87,15 @@ capture() {
   WORKDIR_TILDE="${WORKDIR_REAL/#$HOME/\~}"
   CONFIG_TILDE="${CONFIG_GIVEN/#$HOME/\~}"
 
+  local pause
+  pause="$(read_directive "$keys_file" pause 2)"
+
   local batches=()
   mapfile -t batches < <(read_batches "$keys_file")
 
   "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$workdir" \
-    -t -I -w 90 -p 2 -W "$cols" -H "$rows" \
+    -t -I -w 90 -p "$pause" -W "$cols" -H "$rows" \
     "${batches[@]}" 2>/dev/null | normalise > "$out"
 }
 

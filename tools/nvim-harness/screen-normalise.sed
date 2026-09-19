@@ -10,4 +10,7 @@ s/ *[0-9][0-9]*//g
 s/.*Loading workspace.*//
 s/.*[0-9]\+%.*lua_ls.*//
 s/[[:space:]]*$//
+# The showcmd area holds whatever keys are half-typed at the moment of
+# capture, which depends on how fast the machine delivered them.
+/ \(NORMAL\|INSERT\|VISUAL\|V-LINE\|V-BLOCK\|COMMAND\|TERMINAL\|REPLACE\|SELECT\) /s/<[0-9a-fA-F][0-9a-fA-F]>//g
 / \(NORMAL\|INSERT\|VISUAL\|V-LINE\|V-BLOCK\|COMMAND\|TERMINAL\|REPLACE\|SELECT\) /s/  */ /g

@@ -10,4 +10,4 @@ s/ *[0-9][0-9]*//g
 s/.*Loading workspace.*//
 s/.*[0-9]\+%.*lua_ls.*//
 s/[[:space:]]*$//
-${s/  */ /g}
+/ \(NORMAL\|INSERT\|VISUAL\|V-LINE\|V-BLOCK\|COMMAND\|TERMINAL\|REPLACE\|SELECT\) /s/  */ /g

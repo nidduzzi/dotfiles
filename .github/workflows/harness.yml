@@ -33,7 +33,13 @@ jobs:
           neovim: true
           version: stable
 
-      - run: sudo apt-get update && sudo apt-get install -y tmux
+      - name: the tools the picker looks for
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux fd-find ripgrep
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - uses: actions/cache@v4
         with:
@@ -52,7 +58,9 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: nvim --headless "+TSInstallSync! lua python javascript markdown markdown_inline bash json" +qa
+        run: |
+          nvim --headless -c 'lua require("nvim-treesitter").install({ "lua", "python", "javascript", "markdown", "markdown_inline", "bash", "json", "vim", "vimdoc", "query" }):wait(600000)' +qa
+          nvim --headless -c 'lua local have = require("nvim-treesitter.config").get_installed("parsers") print(table.concat(have, " "))' +qa
 
       - run: tools/nvim-harness/make-fixture.sh --force
 

@@ -36,6 +36,8 @@ while getopts "d:c:n:ult:" opt; do
 done
 shift $((OPTIND - 1))
 
+CONFIG_ROOT="$(cd "$CONFIG_ROOT" && pwd)"
+
 [[ -d "$TESTS_DIR" ]] || { echo "Not a directory: $TESTS_DIR" >&2; exit 2; }
 [[ -f "$NORMALISE" ]] || { echo "Missing $NORMALISE" >&2; exit 2; }
 
@@ -50,7 +52,13 @@ read_batches() {
 }
 
 normalise() {
-  sed -f "$NORMALISE" | sed "s/\\b$BRANCH\\b/BRANCH/g"
+  sed -e "s|$WORKDIR_REAL|PROJECT|g" \
+      -e "s|$WORKDIR_TILDE|PROJECT|g" \
+      -e "s|$CONFIG_REAL|CONFIG|g" \
+      -e "s|$CONFIG_GIVEN|CONFIG|g" \
+      -e "s|$CONFIG_TILDE|CONFIG|g" \
+      -f "$NORMALISE" \
+      -e "s/\\b$BRANCH\\b/BRANCH/g"
 }
 
 capture() {
@@ -62,6 +70,11 @@ capture() {
 
   [[ -d "$workdir" ]] || { echo "No such directory: $workdir" >&2; return 1; }
   BRANCH="$(git -C "$workdir" branch --show-current 2>/dev/null || echo NO_BRANCH)"
+  WORKDIR_REAL="$(cd "$workdir" && pwd)"
+  CONFIG_REAL="$(cd "$CONFIG_ROOT" && pwd)"
+  CONFIG_GIVEN="$CONFIG_ROOT"
+  WORKDIR_TILDE="${WORKDIR_REAL/#$HOME/\~}"
+  CONFIG_TILDE="${CONFIG_GIVEN/#$HOME/\~}"
 
   local batches=()
   mapfile -t batches < <(read_batches "$keys_file")

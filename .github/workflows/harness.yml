@@ -1,0 +1,80 @@
+name: harness
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      config_ref:
+        description: nvim-config ref to test against
+        default: claude-manual
+
+env:
+  CONFIG_REF: ${{ github.event.inputs.config_ref || 'claude-manual' }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          ln -sfn "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - run: sudo apt-get update && sudo apt-get install -y tmux
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/nvim-lazyvim
+            ~/.local/state/nvim-lazyvim
+          key: nvim-${{ hashFiles('.worktrees/nvim-lazyvim/lazy-lock.json') }}
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - run: tools/nvim-harness/make-fixture.sh --force
+
+      - run: tools/nvim-harness/check-syntax.sh
+
+      - run: python3 tools/nvim-harness/duplicate-keys.py .worktrees/nvim-lazyvim/lua
+
+      - name: screens
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/screen-test.sh
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-drawn
+          path: .worktrees/nvim-lazyvim/tests/screen/
+          retention-days: 7
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n every script
+        run: |
+          status=0
+          while IFS= read -r script; do
+            bash -n "$script" || { echo "syntax error: $script"; status=1; }
+          done < <(find tools -name '*.sh')
+          exit "$status"

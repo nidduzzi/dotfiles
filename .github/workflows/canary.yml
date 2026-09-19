@@ -1,0 +1,58 @@
+name: canary
+
+on:
+  schedule:
+    - cron: "17 5 * * *"
+  workflow_dispatch:
+    inputs:
+      agent:
+        description: which agent to test
+        default: claude
+      config_ref:
+        description: nvim-config ref to test against
+        default: claude-manual
+
+env:
+  AGENT: ${{ github.event.inputs.agent || 'claude' }}
+  CONFIG_REF: ${{ github.event.inputs.config_ref || 'claude-manual' }}
+
+jobs:
+  lockdown:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        rung: [chat, context, explore, edit]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - name: the agent CLI
+        run: |
+          if ! command -v "$AGENT" >/dev/null; then
+            echo "$AGENT is not installed on this runner."
+            echo "The canary drives a subscription CLI; there is nothing to fall back to."
+            exit 1
+          fi
+
+      - run: tools/nvim-harness/agent-canary.sh "$AGENT" "${{ matrix.rung }}"
+
+  rungs-match-the-canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - name: the flags the editor sends and the flags the canary proves
+        run: python3 tools/nvim-harness/rung-flags-match.py

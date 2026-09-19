@@ -76,6 +76,15 @@ three files left untracked on purpose.
 tools/nvim-harness/make-fixture.sh --force
 ```
 
+`debug-fixtures/` holds one small program per language for the debugger, built
+by `make-debug-fixtures.sh`. Each has a function taking two arguments and a
+local, so a breakpoint has something to show. A language whose toolchain is
+missing is skipped and named.
+
+```sh
+tools/nvim-harness/make-debug-fixtures.sh
+```
+
 ## Gates
 
 These assert something and exit non-zero when it fails. Everything above this
@@ -142,6 +151,7 @@ Anywhere else needs `-F`, and wanting `-F` is worth a second thought.
 | `nvim-drive.sh` | drive one editor, capture the pane at the end |
 | `film.sh` | drive one editor, capture a frame per key batch |
 | `make-fixture.sh` | generate the repository the gates run against |
+| `make-debug-fixtures.sh` | generate one small program per language for the debugger |
 | `check-syntax.sh` | gate: every Lua file compiles |
 | `check-keymaps.sh` | gate: collisions, duplicates, dead keys |
 | `duplicate-keys.py` | gate: one key bound twice, by reading the source |

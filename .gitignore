@@ -48,3 +48,7 @@ tools/nvim-harness/*-check/
 
 # Git worktrees for in-progress submodule branches (the LazyVim migration).
 .worktrees/
+
+# Built by tools/nvim-harness/make-debug-fixtures.sh: compiled binaries, a
+# virtualenv and a cargo target directory, none of which belong in git.
+tools/nvim-harness/debug-fixtures/

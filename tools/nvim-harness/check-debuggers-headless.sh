@@ -70,6 +70,10 @@ for case in "${CASES[@]}"; do
 
   checked=$((checked + 1))
 
+  # No prompts, and nothing to type into one: a hit-enter prompt in a headless
+  # editor blocks the loop that would otherwise time this out, and the Windows
+  # job sat in one until CI gave up on the whole run.
+  #
   # The editor's own exit status decides, not the shape of what it printed:
   # "stopped at main.py:3, expected main.py:99" starts the same way a pass
   # does, and a check that reads only the first two words passes it.
@@ -78,7 +82,8 @@ for case in "${CASES[@]}"; do
     cd "$HERE/debug-fixtures/$lang" &&
       DEBUG_LINE="$line" DEBUG_EXPECT="$expect" DEBUG_SETTLE="${DEBUG_SETTLE:-40}" \
         env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
-        nvim --headless "$file" +"luafile $HERE/debug-headless.lua" >"$answered" 2>&1
+        nvim --headless --cmd 'set more? nomore' --cmd 'set shortmess+=atToOF' \
+          "$file" +"luafile $HERE/debug-headless.lua" >"$answered" 2>&1 </dev/null
   ); then
     # -o, because a notice about a missing language server arrives without a
     # newline and the answer ends up appended to it.

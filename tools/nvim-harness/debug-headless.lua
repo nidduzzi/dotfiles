@@ -23,6 +23,8 @@ local case = {
   settle = tonumber(vim.env.DEBUG_SETTLE) or 30,
 }
 
+vim.o.more = false
+
 local function finish(ok, message)
   io.stdout:write(message .. "\n")
   vim.cmd(ok and "qa!" or "cq!")

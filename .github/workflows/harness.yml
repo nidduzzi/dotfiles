@@ -352,4 +352,8 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
+        # A step timeout as well as the check's own: a headless editor stuck in
+        # a prompt takes the whole run with it otherwise, and a job that hangs
+        # for six hours says nothing a job that fails in ten minutes does not.
+        timeout-minutes: 15
         run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript)$'

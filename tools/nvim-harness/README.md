@@ -98,11 +98,12 @@ line captures; everything below it decides.
 | `screen-test.sh` | a screen that no longer matches its committed copy | tmux, the fixture |
 | `rung-flags-match.py` | the agent canary proving flags the editor does not send | nothing |
 | `check-key-names.sh` | a key batch tmux would send as a key rather than as text | tmux |
+| `check-picker-keys.sh` | a key the tour presses inside a picker that nothing is bound to, or a snacks key taken without saying so | the config |
 | `run-probes.sh -p PROJECT` | a blocking call over budget, or errors at startup | a project |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
-| `feature-tour.sh -c CONFIG` | a scenario that could not be captured | tmux, the fixture |
+| `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |
 
-`.github/workflows/harness.yml` runs the first five on every push.
+`.github/workflows/harness.yml` runs the first six on every push.
 `agent-canary.sh` needs a subscription CLI, so `canary.yml` runs it on dispatch
 rather than pretending a runner can.
 
@@ -132,6 +133,20 @@ A comparison retries before failing, because a language server answers when it
 answers. The attempt number is printed when it is not the first, so a screen
 that is only eventually right still says so.
 
+### The feature tour
+
+Each scenario in `feature-tour.sh` is a line:
+
+```
+name | description | seconds to wait for the editor | expected pattern | keys...
+```
+
+The expected pattern is an extended regular expression the captured frame has
+to contain. Match on what the feature puts on the screen -- a picker title, a
+message, the text a filter left behind. A pattern that would still match if
+the key had been ignored is not a check: eight scenarios pressed keys that did
+nothing and every one of them captured a frame.
+
 ## Recording
 
 `record-tour.sh`, `record-agent-tour.sh` and `record-stress-tour.sh` capture a
@@ -160,9 +175,11 @@ Anywhere else needs `-F`, and wanting `-F` is worth a second thought.
 | `screen-test.sh` | gate: screens match their committed copies |
 | `rung-flags-match.py` | gate: the canary proves the flags the editor sends |
 | `check-key-names.sh` | gate: no key batch is secretly a tmux key name |
+| `check-picker-keys.sh` | gate: the keys that exist only inside a picker |
+| `picker-keys.lua` | the picker's resolved key table, for that gate |
 | `run-probes.sh` | gate: timings within budget, no startup errors |
 | `agent-canary.sh` | gate: an agent cannot write what its rung forbids |
-| `feature-tour.sh` | capture sixty scenarios onto one page |
+| `feature-tour.sh` | gate: sixty scenarios, each checked against what it drew |
 | `record-tour.sh` | the editing tour, one film per feature |
 | `record-agent-tour.sh` | the agent tour, driven against a local model |
 | `record-stress-tour.sh` | the same keys against real repositories |
@@ -179,3 +196,4 @@ Anywhere else needs `-F`, and wanting `-F` is worth a second thought.
 | `screen-normalise.sed` | what a screen comparison ignores |
 | `expected-collisions.txt` | keys taken from LazyVim on purpose |
 | `expected-dead-keys.txt` | keys left undescribed by someone else |
+| `expected-picker-overrides.txt` | picker keys taken from snacks on purpose |

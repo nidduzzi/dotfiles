@@ -294,3 +294,62 @@ jobs:
           name: debuggers-drawn-macos
           path: ${{ runner.temp }}/nvim-debuggers
           if-no-files-found: ignore
+
+  # Windows has no tmux, so the driven check cannot run there and the adapters
+  # went unchecked on the platform most likely to break them. This asks
+  # nvim-dap directly instead. C, C++ and Rust are left out: their fixtures
+  # need a toolchain to build, which is a different thing to test.
+  debuggers-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          cp -r "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless \
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          ls "$LOCALAPPDATA/nvim-data/mason/bin" 2>/dev/null ||
+            ls "$HOME/AppData/Local/nvim-lazyvim-data/mason/bin" 2>/dev/null || true
+
+      - name: the programs the debuggers run
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/make-debug-fixtures.sh
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript)$'

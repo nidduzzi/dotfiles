@@ -89,6 +89,18 @@ for case in "${CASES[@]}"; do
   else
     echo "NEVER STOPPED: nothing matching '$expect', frame in $drawn"
     failures+=("$lang: no '$expect'")
+
+    # A session that never starts leaves the breakpoint sign and nothing else.
+    # nvim-dap writes every exchange with the adapter to its log, and an
+    # adapter that died before speaking says so there. The notification that
+    # carried the same news had faded long before the frame was captured.
+    log="${XDG_STATE_HOME:-$HOME/.local/state}/$APPNAME/dap.log"
+    echo "           what the adapter said:"
+    if [[ -s "$log" ]]; then
+      tail -12 "$log" | cut -c1-160 | sed 's/^/           /'
+    else
+      echo "           nothing: $log is empty or missing"
+    fi
   fi
 done
 

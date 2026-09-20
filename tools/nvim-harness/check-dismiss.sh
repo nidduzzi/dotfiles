@@ -32,8 +32,8 @@ DISMISS_FILE="$HERE/fixture/broken.py" \
   DISMISS_OUT="$REPORT" \
   "$HERE/nvim-drive.sh" \
   -c "$CONFIG_DIR" -n "$APPNAME" -d "$HERE/fixture" \
-  -t -I -w 60 -p 3 \
-  "wait:45:ex:luafile $HERE/dismiss-combinations.lua" >/dev/null 2>&1 || true
+  -t -I -w 90 -p 3 \
+  "wait:90:ex:luafile $HERE/dismiss-combinations.lua" >/dev/null 2>&1 || true
 
 [[ -s "$REPORT" ]] || { echo "the editor reported nothing at all" >&2; exit 1; }
 

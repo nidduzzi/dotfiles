@@ -23,16 +23,30 @@ local function windows()
   return table.concat(names, ",")
 end
 
+--- Wait for the screen to stop being what it was.
+---
+--- A fixed sleep is a guess about the slowest machine that will ever run
+--- this. The debugger UI took longer than three seconds on a CI runner, and
+--- the press that followed landed before there was anything to close.
+---@param was string
+---@param timeout integer
+local function until_different(was, timeout)
+  vim.wait(timeout, function()
+    return windows() ~= was
+  end, 100)
+end
+
 ---@param name string
 ---@param open fun()
 ---@return string
 local function case(name, open)
+  local before = windows()
   open()
-  vim.wait(3000)
+  until_different(before, 15000)
   local opened = windows()
 
   dismiss.dismiss()
-  vim.wait(2000)
+  until_different(opened, 8000)
 
   return ("%s opened=%s after=%s"):format(name, opened, windows())
 end
@@ -55,6 +69,17 @@ out[#out + 1] = case("terminal", function()
 end)
 
 out[#out + 1] = case("trouble", function()
+  -- Diagnostics of its own, rather than a language server's: a runner may
+  -- have no server for this file, and then Trouble opens nothing and the
+  -- press that follows proves nothing.
+  vim.diagnostic.set(vim.api.nvim_create_namespace("dismiss-combinations"), 0, {
+    {
+      lnum = 0,
+      col = 0,
+      message = "something to list",
+      severity = vim.diagnostic.severity.WARN,
+    },
+  })
   vim.cmd("Trouble diagnostics open")
 end)
 

@@ -107,6 +107,13 @@ out[#out + 1] = case("grug-far", function()
   vim.cmd("GrugFar")
 end)
 
+out[#out + 1] = case("diff view", function()
+  -- A diff view owns its whole tab, so closing one of its windows leaves the
+  -- tab, the file panel and the diff. This is the case that made the dismiss
+  -- key learn about composite views at all: see DECISIONS 31.
+  vim.cmd("DiffviewOpen")
+end)
+
 out[#out + 1] = case("debugger", function()
   require("lazy").load({ plugins = { "nvim-dap-ui" } })
   pcall(function()

@@ -75,7 +75,7 @@ SCENARIOS=(
   "grep-word|Search the word under the cursor|14|Grep \(code\)| ff|auth.js|Enter|:3|Enter|w| sw"
   "grep-buffer|Search lines in the current buffer|14|Lines| ff|auth.js|Enter|wait:3: sb"
   "grep-open|Search across open buffers|14|Grep Buffers| ff|auth.js|Enter| ff|lib.lua|Enter| sB"
-  "grep-tree|Results grouped by file in Trouble|14|Snacks| sg|validateToken|wait:6:C-t"
+  "grep-tree|Results grouped by file in Trouble|14|Snacks| sg|validateToken|wait:10:C-t"
   "fuzzy-files|Fuzzy matching in the file picker|14|auth.js| ff|athjs"
   "fuzzy-toggle|Grep, then C-g to fuzzy filter the results|14|README| sg|validateToken|C-g|README"
   "fuzzy-path|Fuzzy filtering the results by path|14|src/| sg|validateToken|C-g|src/"

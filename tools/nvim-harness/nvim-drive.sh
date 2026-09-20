@@ -222,7 +222,10 @@ tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"
 ready=0
 deadline=$((SECONDS + BOOT_WAIT))
 while (( SECONDS < deadline )); do
-  if [[ -S "$RPC" ]] && nvim --server "$RPC" --remote-expr 'v:vim_did_enter' 2>/dev/null | grep -q '^1$'; then
+  # Not just v:vim_did_enter: that is true while LazyVim is still loading its
+  # keymaps on VeryLazy, and a key sent in that window reaches a mapping that
+  # does not exist yet. The configuration says when it has finished.
+  if [[ -S "$RPC" ]] && nvim --server "$RPC" --remote-expr 'v:vim_did_enter == 1 && get(g:, "dotfiles_ready", 0) == v:true' 2>/dev/null | grep -q '^1$'; then
     ready=1
     break
   fi

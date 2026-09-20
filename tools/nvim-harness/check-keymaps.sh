@@ -43,11 +43,25 @@ mkdir -p "$OUT"
 status=0
 
 dump() { # config dir, appname, output
+  local complaint
+  complaint="$(mktemp)"
+
   "$HERE/nvim-drive.sh" -c "$1" -n "$2" -d "$WORKDIR" -t -e -w 24 -p 3 \
     'Space' 'ff' 'lib.lua' 'Enter' \
     ":lua vim.env.NVIM_KEYMAP_DUMP='$3' dofile('$HERE/keymap-dump.lua')" 'Enter' \
-    >/dev/null 2>&1 || true
-  [[ -s "$3" ]] || { echo "Could not dump keymaps for $2" >&2; return 1; }
+    >/dev/null 2>"$complaint" || true
+
+  if [[ ! -s "$3" ]]; then
+    # What the driver said, rather than only that this failed: the baseline
+    # stopped dumping when the driver started waiting for a flag only the
+    # configuration under test sets, and "Could not dump keymaps" said none
+    # of that.
+    echo "Could not dump keymaps for $2" >&2
+    sed 's/^/  /' "$complaint" >&2
+    rm -f "$complaint"
+    return 1
+  fi
+  rm -f "$complaint"
 }
 
 echo "== collisions against stock LazyVim =="

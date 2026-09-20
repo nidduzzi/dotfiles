@@ -49,3 +49,13 @@ n	<Space>gs
 n	<Space>gl
 n	<Space>gL
 n	<Space>gb
+
+# Vim's own argument-list keys, replaced by mini.bracketed's jumps of the same
+# meaning: [a and ]a move between arguments either way, and [A and ]A go to
+# the first and last. Whether they show up here depends on which plugins the
+# baseline happened to install, so they are written down rather than left to
+# chance.
+n	[a
+n	]a
+n	[A
+n	]A

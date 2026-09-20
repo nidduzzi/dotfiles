@@ -82,6 +82,9 @@ jobs:
 
       - run: tools/nvim-harness/check-key-names.sh
 
+      - name: the keys that only exist inside a picker
+        run: tools/nvim-harness/check-picker-keys.sh
+
       - name: screens
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

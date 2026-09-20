@@ -340,8 +340,14 @@ jobs:
           nvim --headless \
             +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
             +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
-          ls "$LOCALAPPDATA/nvim-data/mason/bin" 2>/dev/null ||
-            ls "$HOME/AppData/Local/nvim-lazyvim-data/mason/bin" 2>/dev/null || true
+          # Asked of the editor, because where mason puts things is the
+          # editor's decision and it is a different directory on Windows.
+          bin="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data') .. '/mason/bin') io.stdout:flush()" +qa 2>/dev/null)"
+          echo "mason bin: $bin"
+          ls "$bin"
+          for tool in debugpy-adapter js-debug-adapter; do
+            ls "$bin/$tool"* >/dev/null 2>&1 || { echo "mason did not install $tool"; exit 1; }
+          done
 
       - name: the programs the debuggers run
         env:

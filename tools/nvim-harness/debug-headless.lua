@@ -80,7 +80,25 @@ vim.defer_fn(function()
 
   local session = dap.session()
   if not stopped or not session or not session.current_frame then
-    return finish(false, ("never stopped: %s, session %s"):format(configuration.name, session and "open" or "gone"))
+    -- The adapter's own last words, because "session gone" is the symptom of
+    -- every possible cause: not installed, would not start, could not find
+    -- the program, stopped somewhere else.
+    local said = {}
+    local log = vim.fn.stdpath("cache") .. "/dap.log"
+    if vim.uv.fs_stat(log) then
+      local lines = vim.fn.readfile(log)
+      for index = math.max(1, #lines - 3), #lines do
+        said[#said + 1] = (lines[index] or ""):gsub("%s+", " ")
+      end
+    end
+    return finish(
+      false,
+      ("never stopped: %s, session %s -- %s"):format(
+        configuration.name,
+        session and "open" or "gone",
+        #said > 0 and table.concat(said, " | ") or "the adapter logged nothing"
+      )
+    )
   end
 
   local frame = session.current_frame

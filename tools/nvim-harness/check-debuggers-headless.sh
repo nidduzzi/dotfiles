@@ -71,8 +71,17 @@ for case in "${CASES[@]}"; do
 
   printf '%-12s ' "$lang"
 
-  if ! command -v "$needs" >/dev/null &&
-    [[ ! -x "${XDG_DATA_HOME:-$HOME/.local/share}/$APPNAME/mason/bin/$needs" ]]; then
+  # Where mason keeps its programs is the editor's decision, and it is a
+  # different directory on Windows -- looking under ~/.local/share there found
+  # nothing and skipped every case.
+  if [[ -z "${MASON_BIN:-}" ]]; then
+    MASON_BIN="$(
+      env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
+        nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data') .. '/mason/bin') io.stdout:flush()" +qa 2>/dev/null
+    )"
+  fi
+
+  if ! command -v "$needs" >/dev/null && ! ls "$MASON_BIN/$needs"* >/dev/null 2>&1; then
     echo "skipped, no $needs on PATH or in mason"
     continue
   fi

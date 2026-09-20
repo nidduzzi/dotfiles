@@ -121,6 +121,20 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture
 
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+MasonInstall debugpy js-debug-adapter codelldb" +qa
+
+      - run: tools/nvim-harness/make-debug-fixtures.sh
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/check-debuggers.sh
+
       - name: screens
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

@@ -147,7 +147,16 @@ jobs:
             [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
           done
 
-      - run: tools/nvim-harness/make-debug-fixtures.sh
+      - name: the programs the debuggers run
+        env:
+          # Without this the fixture builder looks for the TypeScript compiler
+          # under ~/.local/share/nvim, which is not where this configuration
+          # keeps its tools -- so the TSX fixture went uncompiled and its case
+          # skipped itself while the run stayed green.
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          tools/nvim-harness/make-debug-fixtures.sh
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
 
       - name: every debugger stops where it is told to
         env:

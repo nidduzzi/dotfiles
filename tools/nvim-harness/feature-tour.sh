@@ -15,6 +15,7 @@
 #   -d DIR    directory Neovim opens in. Default: the harness fixture.
 #   -o DIR    where captures and the contact sheet are written.
 #   -f REGEX  only run scenarios whose name matches.
+#   -a N      attempts per scenario before it counts as failed. Default: 2.
 #
 # The result is OUT_DIR/index.html: every capture on one page, labelled.
 set -Eeuo pipefail
@@ -25,14 +26,16 @@ APPNAME=""
 WORKDIR="$HERE/fixture"
 OUT_DIR="${TMPDIR:-/tmp}/nvim-feature-tour"
 FILTER=""
+ATTEMPTS=2
 
-while getopts "c:n:d:o:f:" opt; do
+while getopts "c:n:d:o:f:a:" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
     d) WORKDIR="$OPTARG" ;;
     o) OUT_DIR="$OPTARG" ;;
     f) FILTER="$OPTARG" ;;
+    a) ATTEMPTS="$OPTARG" ;;
     *) exit 2 ;;
   esac
 done
@@ -67,8 +70,8 @@ SCENARIOS=(
   # -- finding files and text ------------------------------------------------
   "find-files|Search files|14|Files| ff"
   "grep-code|Search file contents, documentation excluded|14|Grep \(code\)| sg|validateToken"
-  "grep-all|Search file contents, everything|14|Grep \(all\)| sg|validateToken|M-S|all|Enter"
-  "grep-docs|Search documentation only|14|Grep \(docs\)| sg|validateToken|M-S|docs|Enter"
+  "grep-all|Search file contents, everything|14|Grep \(all\)| sg|validateToken|M-S|all|wait:2:Enter"
+  "grep-docs|Search documentation only|14|Grep \(docs\)| sg|validateToken|M-S|docs|wait:2:Enter"
   "grep-word|Search the word under the cursor|14|Grep \(code\)| ff|auth.js|Enter|:3|Enter|w| sw"
   "grep-buffer|Search lines in the current buffer|14|Lines| ff|auth.js|Enter|wait:3: sb"
   "grep-open|Search across open buffers|14|Grep Buffers| ff|auth.js|Enter| ff|lib.lua|Enter| sB"
@@ -78,9 +81,9 @@ SCENARIOS=(
   "fuzzy-path|Fuzzy filtering the results by path|14|src/| sg|validateToken|C-g|src/"
   "regex-default|Regex is the default: token.*expiry matches, as ripgrep would|14|expiresAt| sg|token.*expiry"
   "regex-toggle|a-r switches to fixed-string matching, shown by R in the title|14|0/0| sg|M-r|token.*expiry"
-  "filter-glob|Restrict the search to a path glob with a-G|14|Grep \(src/\*\*\)| sg|validateToken|M-G|src/**|Enter"
-  "filter-glob-not|Exclude a path glob, by prefixing it with !|14|Grep \(not src/\*\*\)| sg|validateToken|M-G|!src/**|Enter"
-  "filter-ext|Restrict the search to extensions with a-e|14|Grep \(ext:js\)| sg|validateToken|M-e|js|Enter"
+  "filter-glob|Restrict the search to a path glob with a-G|14|Grep \(src/\*\*\)| sg|validateToken|M-G|src/**|wait:2:Enter"
+  "filter-glob-not|Exclude a path glob, by prefixing it with !|14|Grep \(not src/\*\*\)| sg|validateToken|M-G|!src/**|wait:2:Enter"
+  "filter-ext|Restrict the search to extensions with a-e|14|Grep \(ext:js\)| sg|validateToken|M-e|js|wait:2:Enter"
   "filter-choose|Choosing a filter preset from a list with a-S|14|Search filter| sg|validateToken|M-S"
   "resume|Resume the last search|14|Grep \(code\)| sg|validateToken|wait:2:Escape| sR"
   "buffers|Buffer list|14|Buffers| ff|lib.lua|Enter| ff|app.py|Enter| ,"
@@ -103,7 +106,7 @@ SCENARIOS=(
   "lsp-diagnostics|Diagnostics for the buffer|16|imported but unused| ff|broken.py|Enter|wait:4: xx"
   "lsp-diagnostics-search|Diagnostics picker|16|Diagnostics| ff|broken.py|Enter| sd"
   "lsp-line-diagnostic|Diagnostic for the line|16|Undefined name| ff|broken.py|Enter|:5|Enter| cd"
-  "lsp-inlay|Inlay hints and signature help|14|a: number| ff|lib.lua|Enter"
+  "lsp-inlay|Inlay hints and signature help|14|a: number| ff|lib.lua|wait:6:Enter|wait:2:j|wait:2:k"
   "completion|Completion with documentation|16|Add two numbers together| ff|lib.lua|Enter|GO|M.ad"
   "format|Formatting a badly formatted file|14|M.messy\(a, b\)| ff|messy.lua|Enter| cf"
   # -- git -------------------------------------------------------------------
@@ -154,18 +157,42 @@ for scenario in "${SCENARIOS[@]}"; do
 
   ansi="$OUT_DIR/$name.ansi"
 
-  if "$HERE/nvim-drive.sh" \
-    -c "$CONFIG_DIR" \
-    ${APPNAME:+-n "$APPNAME"} \
-    -d "$WORKDIR" \
-    -t -I -e -w "$wait" -p 2 \
-    -o "$ansi" \
-    "${keys[@]}" >/dev/null 2>&1; then
-    if sed -e 's/\x1b\[[0-9;]*m//g' "$ansi" | grep -qE -- "$expect"; then
-      CAPTURED+=("$name|$desc")
-      echo "captured"
+  # Attempts, for the same reason Neovim's own screen tests retry: a language
+  # server answers when it answers. A key that does nothing fails every
+  # attempt, so this hides no defect -- it only stops a slow machine from
+  # reading like a broken one.
+  drove=0
+  for attempt in $(seq "$ATTEMPTS"); do
+    if "$HERE/nvim-drive.sh" \
+      -c "$CONFIG_DIR" \
+      ${APPNAME:+-n "$APPNAME"} \
+      -d "$WORKDIR" \
+      -t -I -e -w "$wait" -p 2 \
+      -o "$ansi" \
+      "${keys[@]}" >/dev/null 2>&1; then
+      drove=1
+      sed -e 's/\x1b\[[0-9;]*m//g' "$ansi" >"$OUT_DIR/$name.drawn"
+      if grep -qE -- "$expect" "$OUT_DIR/$name.drawn"; then
+        break
+      fi
     else
-      echo "CAPTURED BUT EMPTY: nothing matching /$expect/"
+      drove=0
+    fi
+  done
+
+  if [[ "$drove" -eq 1 ]]; then
+    # The stripped frame is kept when the pattern is missing. Reading the
+    # .ansi afterwards proves nothing: the next run of that scenario
+    # overwrites it, so an inspection minutes later can show the text the
+    # check did not find.
+    plain="$OUT_DIR/$name.drawn"
+
+    if grep -qE -- "$expect" "$plain"; then
+      rm -f "$plain"
+      CAPTURED+=("$name|$desc")
+      [[ "$attempt" -gt 1 ]] && echo "captured, on attempt $attempt" || echo "captured"
+    else
+      echo "CAPTURED BUT EMPTY after $ATTEMPTS attempt(s): nothing matching /$expect/, frame in $plain"
       FAILURES+=("$name: no /$expect/")
     fi
   else

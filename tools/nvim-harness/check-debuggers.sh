@@ -78,7 +78,7 @@ trap stop_server EXIT
 # on, because on macOS `localhost` resolves to ::1 first where nothing answers;
 # and it gets a profile of its own, because a runner's default profile is not
 # a place a browser can always start from.
-HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
+HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = vim.env.NVIM_DEBUG_TRACE } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
 
 failures=()
 checked=0
@@ -140,6 +140,9 @@ for case in "${CASES[@]}"; do
       >"$OUT_DIR/tsx.server" 2>&1 &
     server_pid=$!
     prelude=("$HEADLESS")
+    # js-debug's own log, which is the only place a browser that never
+    # connected explains itself.
+    export NVIM_DEBUG_TRACE="$OUT_DIR/tsx.jsdebug.log"
 
     # Both halves said out loud, because a page that does not load and a
     # browser that does not start draw the same empty frame.
@@ -218,6 +221,13 @@ for case in "${CASES[@]}"; do
     # An empty log means nothing ever spoke to an adapter, which is a question
     # about the configurations the editor offers rather than about the
     # debugger. Ask it directly, without a terminal in the way.
+    if [[ -s "$OUT_DIR/$lang.jsdebug.log" ]]; then
+      echo "           what the browser adapter traced:"
+      grep -oE '"(error|exceptionThrown|cannot|Cannot)[^"]*"' "$OUT_DIR/$lang.jsdebug.log" |
+        sort -u | head -6 | sed 's/^/           /'
+      grep -oE 'Unable to launch browser[^"]*' "$OUT_DIR/$lang.jsdebug.log" | head -2 | sed 's/^/           /'
+    fi
+
     echo "           what the editor offers for this file:"
     (cd "$HERE/debug-fixtures/$lang" &&
       env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \

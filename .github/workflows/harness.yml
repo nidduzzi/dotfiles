@@ -175,7 +175,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debuggers-drawn
-          path: ${{ runner.temp }}/nvim-debuggers/*.drawn
+          path: ${{ runner.temp }}/nvim-debuggers
           if-no-files-found: ignore
 
       - name: the whole feature tour
@@ -285,5 +285,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debuggers-drawn-macos
-          path: ${{ runner.temp }}/nvim-debuggers/*.drawn
+          path: ${{ runner.temp }}/nvim-debuggers
           if-no-files-found: ignore

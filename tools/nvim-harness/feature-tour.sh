@@ -64,7 +64,7 @@ SCENARIOS=(
   "grep-word|Search the word under the cursor|12|Space|ff|auth.js|Enter|:3|Enter|w|Space|sw"
   "grep-buffer|Search lines in the current buffer|12|Space|ff|auth.js|Enter|Space|sb"
   "grep-open|Search across open buffers|14|Space|ff|auth.js|Enter|Space|ff|lib.lua|Enter|Space|sB"
-  "grep-tree|Results grouped by file in Trouble|8|Space|sg|validateToken|C-t"
+  "grep-tree|Results grouped by file in Trouble|8|Space|sg|validateToken|wait:3:C-t"
   "fuzzy-files|Fuzzy matching in the file picker|10|Space|ff|athjs"
   "fuzzy-toggle|Grep, then C-g to fuzzy filter the results|12|Space|sg|validateToken|C-g|README"
   "fuzzy-path|Fuzzy filtering the results by path|12|Space|sg|validateToken|C-g|src/"
@@ -73,7 +73,7 @@ SCENARIOS=(
   "filter-glob|Restrict the search to a path glob with a-G|14|Space|sg|validateToken|M-G|src/**|Enter"
   "filter-glob-not|Exclude a path glob, by prefixing it with !|14|Space|sg|validateToken|M-G|!src/**|Enter"
   "filter-ext|Restrict the search to extensions with a-e|14|Space|sg|validateToken|M-e|js|Enter"
-  "filter-choose|Choosing a filter preset from a list with a-p|12|Space|sg|validateToken|M-p"
+  "filter-choose|Choosing a filter preset from a list with a-S|12|Space|sg|validateToken|M-S"
   "resume|Resume the last search|14|Space|sg|validateToken|Escape|Space|sR"
   "buffers|Buffer list|12|Space|ff|lib.lua|Enter|Space|ff|app.py|Enter|Space|,"
   "recent|Recent files|8|Space|fr"
@@ -116,7 +116,7 @@ SCENARIOS=(
   "mason|Tool installer|10|Space|cm"
   "colorscheme|Colourscheme picker|8|Space|uC"
   "health|Which language servers this project provides|14|:checkhealth dotfiles|Enter"
-  "notifications|Notification history|10|Space|snh"
+  "notifications|Notification history|12|Space|sg|validateToken|M-c|Escape|wait:2:Space|n"
 )
 
 echo "config:   $CONFIG_DIR ($APPNAME)"

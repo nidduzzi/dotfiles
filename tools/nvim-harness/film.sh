@@ -29,6 +29,7 @@
 #   -P SECS   pause after a `slow:` batch, for a key that starts a request
 #   -t        trust the project's .nvim.lua, inside this harness only
 #   -F        trust one outside it, which runs Lua the project wrote
+#   -I        start with -i NONE, so a remembered cursor cannot move the keys
 #   -T TEXT   title for this film
 #
 # A batch written as `ex:<command>` is sent over RPC as an Ex command, which is
@@ -66,9 +67,10 @@ KEY_WAIT=1.5
 SLOW_WAIT=""
 TRUST=0
 FORCE_TRUST=0
+NO_SHADA=0
 TITLE="Neovim"
 
-while getopts "c:n:d:o:W:H:w:p:P:T:tF" opt; do
+while getopts "c:n:d:o:W:H:w:p:P:T:tFI" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -82,6 +84,7 @@ while getopts "c:n:d:o:W:H:w:p:P:T:tF" opt; do
     T) TITLE="$OPTARG" ;;
     t) TRUST=1 ;;
     F) FORCE_TRUST=1 ;;
+    I) NO_SHADA=1 ;;
     *) exit 2 ;;
   esac
 done
@@ -172,6 +175,7 @@ for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
   fi
 done
 launch="env $launch --listen $RPC"
+[[ "$NO_SHADA" -eq 1 ]] && launch="$launch -i NONE"
 
 tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"
 

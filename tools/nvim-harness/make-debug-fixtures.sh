@@ -191,6 +191,16 @@ end
 
 main()
 EOF
+# A mise shim resolves the version from the directory it runs in, so a shim on
+# PATH is not the same as a usable interpreter: outside a project that names a
+# version it exits with "No version is set for shim: julia". The editor asks
+# vim.fn.executable, which says yes to the shim either way, and the debug
+# session then failed with nothing on screen to say why.
+if have mise && mise ls julia 2>/dev/null | grep -q '[0-9]'; then
+  julia_version="$(mise ls julia 2>/dev/null | awk '/[0-9]/ { print $2; exit }')"
+  printf '[tools]\njulia = "%s"\n' "$julia_version" > "$DIR/julia/mise.toml"
+fi
+
 if have julia && (cd "$DIR/julia" && julia --project=. -e 'using Pkg; Pkg.add("DebugAdapter")' >/dev/null 2>&1); then
   git_init "$DIR/julia"
   made+=("julia")

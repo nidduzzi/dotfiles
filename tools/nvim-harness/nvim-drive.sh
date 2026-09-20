@@ -141,6 +141,21 @@ fi
 # Neovim asks once before running a project's .nvim.lua. That prompt appears
 # before the editor is ready, so any keys this script sends would answer the
 # prompt instead of reaching the editor. Record the trust decision up front.
+# The project trust store, which is a separate decision from the .nvim.lua
+# prompt: it is what lets a project's own programs run, and since gating git
+# it is also what lets gitsigns attach and the diff and worktree keys work.
+# -t means "this is the harness's own fixture", so it grants both.
+if [[ "$TRUST" -eq 1 ]]; then
+  workdir_real="$(cd "$WORKDIR" && pwd)"
+  if [[ "$workdir_real" == "$HARNESS"/* || "$FORCE_TRUST" -eq 1 ]]; then
+    env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
+      nvim --headless -u NONE \
+      --cmd "set runtimepath+=${CONFIG_DIR:-$HOME/.config}/${APPNAME:-nvim}" \
+      +"lua require('util.trust').allow('$WORKDIR')" \
+      +qa 2>/dev/null || echo "Could not trust $WORKDIR" >&2
+  fi
+fi
+
 if [[ "$TRUST" -eq 1 && -f "$WORKDIR/.nvim.lua" ]]; then
   # .nvim.lua is Lua the repository wrote, and trusting it runs it. The prompt
   # Neovim shows is the only thing standing between a clone and that, so this

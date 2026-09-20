@@ -158,9 +158,14 @@ assert nothing; they are for reading.
 
 ## Trusting a project
 
-`-t` answers Neovim's prompt for a `.nvim.lua`, which runs Lua the project
-wrote. It does that only inside this harness, which is where the fixture is.
-Anywhere else needs `-F`, and wanting `-F` is worth a second thought.
+`-t` grants this project both kinds of trust: it answers Neovim's prompt for a
+`.nvim.lua`, which runs Lua the project wrote, and it records the project in
+the editor's own trust store, which is what lets the project's programs run
+--- and, since git was gated, what lets gitsigns attach and the diff, worktree
+and git picker keys work at all.
+
+It does that only inside this harness, which is where the fixture is. Anywhere
+else needs `-F`, and wanting `-F` is worth a second thought.
 
 ## Everything here
 

@@ -26,7 +26,10 @@ local case = {
 vim.o.more = false
 
 local function finish(ok, message)
+  -- Flushed, because the quit that follows does not: on a first Windows run
+  -- the answer was written and then thrown away with the process.
   io.stdout:write(message .. "\n")
+  io.stdout:flush()
   vim.cmd(ok and "qa!" or "cq!")
 end
 

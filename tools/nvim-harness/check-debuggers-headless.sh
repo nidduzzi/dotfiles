@@ -31,6 +31,20 @@ done
 
 CONFIG_ROOT="$(cd "$CONFIG_ROOT" && pwd)"
 
+# Git Bash hands out /d/a/… paths, and a native Windows Neovim cannot open
+# one: `luafile /d/a/…` is E484, which is a hit-enter prompt, which is a
+# headless editor that never exits. cygpath is what Git Bash ships for this.
+to_editor_path() {
+  if command -v cygpath >/dev/null; then
+    cygpath -w "$1"
+  else
+    printf '%s' "$1"
+  fi
+}
+
+SCRIPT="$(to_editor_path "$HERE/debug-headless.lua")"
+CONFIG_FOR_EDITOR="$(to_editor_path "$CONFIG_ROOT")"
+
 # language | file | breakpoint line | the program that must be there | expect
 #
 # The browser case is not here: it needs a page to be served and a browser to
@@ -81,9 +95,9 @@ for case in "${CASES[@]}"; do
   if (
     cd "$HERE/debug-fixtures/$lang" &&
       DEBUG_LINE="$line" DEBUG_EXPECT="$expect" DEBUG_SETTLE="${DEBUG_SETTLE:-40}" \
-        env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
-        nvim --headless --cmd 'set more? nomore' --cmd 'set shortmess+=atToOF' \
-          "$file" +"luafile $HERE/debug-headless.lua" >"$answered" 2>&1 </dev/null
+        env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
+        nvim --headless --cmd 'set nomore' --cmd 'set shortmess+=atToOF' \
+          "$file" +"luafile $SCRIPT" >"$answered" 2>&1 </dev/null
   ); then
     # -o, because a notice about a missing language server arrives without a
     # newline and the answer ends up appended to it.

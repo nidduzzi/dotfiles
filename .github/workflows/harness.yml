@@ -121,6 +121,13 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture
 
+      # The runner's node decides whether a .ts file runs at all: below 22.6
+      # nothing strips the types, the configuration starts main.ts under a node
+      # that cannot read it, and the session dies before the adapter speaks.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
       - name: the adapters the debuggers need
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

@@ -15,6 +15,8 @@
 #   -H ROWS   Pane height. Default: 40.
 #   -w SECS   Seconds to wait after startup before sending keys. Default: 3.
 #   -p SECS   Seconds to wait after each key batch. Default: 1.
+#   -a FILE   Open FILE as a command-line argument, which is a different
+#             startup path from opening it once the editor is running.
 #   -o FILE   Write the captured pane to FILE as well as stdout.
 #   -e        Capture with ANSI escape sequences (needed for screenshots).
 #   -k        Keep the tmux server alive after capturing, for manual poking.
@@ -58,11 +60,13 @@ KEY_WAIT=1
 OUTFILE=""
 CAPTURE_ANSI=0
 KEEP=0
+OPEN_FILE=""
 TRUST=0
-FORCE_TRUST=0
+FORCE_OPEN_FILE=""
+TRUST=0
 NO_SHADA=0
 
-while getopts "c:n:d:s:W:H:w:p:o:ektIF" opt; do
+while getopts "a:c:n:d:s:W:H:w:p:o:ektIF" opt; do
   case "$opt" in
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
@@ -75,6 +79,7 @@ while getopts "c:n:d:s:W:H:w:p:o:ektIF" opt; do
     o) OUTFILE="$OPTARG" ;;
     e) CAPTURE_ANSI=1 ;;
     k) KEEP=1 ;;
+    a) OPEN_FILE="$OPTARG" ;;
     t) TRUST=1 ;;
     I) NO_SHADA=1 ;;
     F) FORCE_TRUST=1 ;;
@@ -205,6 +210,12 @@ RPC="${TMPDIR:-/tmp}/nvim-drive-$$.sock"
 rm -f "$RPC"
 launch="$launch --listen $RPC"
 [[ "$NO_SHADA" -eq 1 ]] && launch="$launch -i NONE"
+
+# A file on the command line is a different startup from opening one later:
+# LazyVim loads its autocmds eagerly when argc is not zero, and lazily
+# otherwise, so a handler can exist on one path and not the other. Three
+# versions of the trust prompt were wrong about exactly that.
+[[ -n "$OPEN_FILE" ]] && launch="$launch $(printf '%q' "$OPEN_FILE")"
 
 tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"
 

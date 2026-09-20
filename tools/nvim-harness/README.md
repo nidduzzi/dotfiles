@@ -102,11 +102,12 @@ line captures; everything below it decides.
 | `check-capability-keys.sh` | a key the capability list offers that nothing is bound to | the config, the fixture |
 | `check-startup-plugins.sh` | a plugin that loads before you ask for it | the config, the fixture |
 | `check-dismiss.sh` | an overlay one press of the dismiss key does not close, or a file it does | the config, the fixture |
+| `check-startup-paths.sh` | a way into an untrusted project that is not asked about, or a trusted one that is | the config, git |
 | `run-probes.sh -p PROJECT` | a probe that did not run, a blocking call over budget, or errors at startup | a project |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |
 
-`.github/workflows/harness.yml` runs the first ten on every push.
+`.github/workflows/harness.yml` runs the first twelve on every push.
 `agent-canary.sh` needs a subscription CLI, so `canary.yml` runs it on dispatch
 rather than pretending a runner can.
 
@@ -187,6 +188,7 @@ else needs `-F`, and wanting `-F` is worth a second thought.
 | `check-capability-keys.sh` | gate: the keys the capability list offers |
 | `check-startup-plugins.sh` | gate: what loads at startup, against a baseline |
 | `check-dismiss.sh` | gate: one press closes what is open, and not the file |
+| `check-startup-paths.sh` | gate: both ways into a project ask about trust |
 | `dismiss-combinations.lua` | the overlays that gate opens, one at a time |
 | `startup-plugins.lua` | which plugins are loaded, read from the running editor |
 | `capability-keys.lua` | what that list claims, read from the running editor |

@@ -109,6 +109,9 @@ jobs:
       - name: the collision check
         run: tools/nvim-harness/check-keymaps.sh
 
+      - name: both ways into a project ask about trust
+        run: tools/nvim-harness/check-startup-paths.sh
+
       - name: one press closes what is open
         run: tools/nvim-harness/check-dismiss.sh
 

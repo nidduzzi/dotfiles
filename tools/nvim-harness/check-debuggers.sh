@@ -101,6 +101,16 @@ for case in "${CASES[@]}"; do
     else
       echo "           nothing: $log is empty or missing"
     fi
+
+    # An empty log means nothing ever spoke to an adapter, which is a question
+    # about the configurations the editor offers rather than about the
+    # debugger. Ask it directly, without a terminal in the way.
+    echo "           what the editor offers for this file:"
+    (cd "$HERE/debug-fixtures/$lang" &&
+      env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
+        nvim --headless "$file" \
+        +"lua vim.defer_fn(function() local dap = require('dap') local ft = vim.bo.filetype local names = {} for _, c in ipairs(dap.configurations[ft] or {}) do names[#names + 1] = c.type .. ' ' .. c.request .. ' ' .. c.name end print(ft .. ': ' .. (#names > 0 and table.concat(names, ' | ') or 'no configurations')) vim.cmd('qa!') end, 8000)" \
+        2>&1 | tail -3 | sed 's/^/           /') || true
   fi
 done
 

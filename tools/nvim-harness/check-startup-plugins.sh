@@ -39,7 +39,11 @@ PROBE_OUT="$REPORT" "$HERE/nvim-drive.sh" \
 
 [[ -s "$REPORT" ]] || { echo "the editor reported no plugins at all" >&2; exit 1; }
 
-tail -n +3 "$REPORT" | sed 's/^  //' | sort -u > "$FOUND"
+# LC_ALL=C, because sort's order depends on the locale: this machine ignores
+# case and puts LazyVim between lazy.nvim and lualine.nvim, while a CI runner
+# in the C locale puts every capital first. Same set, different file, and the
+# gate failed on a difference that was not about plugins at all.
+tail -n +3 "$REPORT" | sed 's/^  //' | LC_ALL=C sort -u > "$FOUND"
 
 if [[ "$UPDATE" -eq 1 ]]; then
   {
@@ -51,7 +55,7 @@ if [[ "$UPDATE" -eq 1 ]]; then
   exit 0
 fi
 
-if ! diff -u <(grep -v '^#' "$EXPECTED" | grep -v '^[[:space:]]*$') "$FOUND" > "$REPORT.diff"; then
+if ! diff -u <(grep -v '^#' "$EXPECTED" | grep -v '^[[:space:]]*$' | LC_ALL=C sort -u) "$FOUND" > "$REPORT.diff"; then
   echo "What loads at startup has changed:"
   sed -n '3,$p' "$REPORT.diff" | sed 's/^/  /'
   echo

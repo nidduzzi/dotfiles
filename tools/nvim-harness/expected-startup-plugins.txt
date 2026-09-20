@@ -11,10 +11,10 @@
 # just takes longer to open.
 #
 # Re-baseline with check-startup-plugins.sh -u after a deliberate change.
+LazyVim
 bufferline.nvim
 flash.nvim
 lazy.nvim
-LazyVim
 lualine.nvim
 mason-lspconfig.nvim
 mini.ai

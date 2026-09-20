@@ -112,12 +112,16 @@ for case in "${CASES[@]}"; do
 
   # Asked of the editor rather than guessed at here, so the gate and the
   # configuration are looking for the same browser in the same places.
-  if [[ "$lang" == tsx ]] && [[ -z "$(
-    env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
-      nvim --headless +"lua io.stdout:write(require('util.browser').executable() or '')" +qa 2>/dev/null
-  )" ]]; then
-    echo "skipped, this machine has no browser to debug in"
-    continue
+  browser=""
+  if [[ "$lang" == tsx ]]; then
+    browser="$(
+      env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
+        nvim --headless +"lua io.stdout:write(require('util.browser').executable() or '')" +qa 2>/dev/null
+    )"
+    if [[ -z "$browser" ]]; then
+      echo "skipped, this machine has no browser to debug in"
+      continue
+    fi
   fi
 
   checked=$((checked + 1))
@@ -134,6 +138,23 @@ for case in "${CASES[@]}"; do
     (cd "$HERE/debug-fixtures/tsx" && exec python3 -m http.server "$TSX_PORT" --bind 127.0.0.1) >/dev/null 2>&1 &
     server_pid=$!
     prelude=("$HEADLESS")
+
+    # Both halves said out loud, because a page that does not load and a
+    # browser that does not start draw the same empty frame.
+    served=""
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      # `|| true` because a refused connection is the normal answer while the
+      # server is still starting, and `set -e` took the whole gate out on it.
+      served="$(curl -s --max-time 2 "http://127.0.0.1:$TSX_PORT/index.js" 2>/dev/null | head -c 20 || true)"
+      [[ -n "$served" ]] && break
+      sleep 1
+    done
+    if [[ -z "$served" ]]; then
+      echo "FAILED: nothing is serving the fixture on port $TSX_PORT"
+      failures+=("$lang: the fixture was not served")
+      continue
+    fi
+    printf '(browser: %s) ' "$(basename "$browser")"
   fi
 
   # Down, not j: the picker opens with its filter focused, so j is a letter

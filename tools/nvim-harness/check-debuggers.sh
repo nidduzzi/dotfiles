@@ -59,9 +59,16 @@ CASES=(
 TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
 server_pid=""
 
+# The status is carried through by hand: an EXIT trap whose last command
+# succeeds hands that success to the caller, and this one turned a script that
+# died on its first case into a step CI called green.
 stop_server() {
-  [[ -n "$server_pid" ]] && kill "$server_pid" 2>/dev/null
-  server_pid=""
+  local status=$?
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+    server_pid=""
+  fi
+  return "$status"
 }
 trap stop_server EXIT
 
@@ -104,6 +111,8 @@ for case in "${CASES[@]}"; do
 
   # The page a browser configuration opens has to be served by something, and
   # the fixture's own dev script is a plain static server.
+  # Written the long way because macOS ships bash 3.2, where an empty array
+  # under `set -u` is an unbound variable rather than nothing at all.
   prelude=()
   if [[ "$lang" == tsx ]]; then
     stop_server
@@ -123,8 +132,8 @@ for case in "${CASES[@]}"; do
   if ! "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$HERE/debug-fixtures/$lang" \
     -t -I -e -w $((settle + 40)) -p 2 -o "$ansi" \
-    ' ff' "$file" Enter ":$line" Enter ' db' "${prelude[@]}" \
-    'wait:3: dc' 'wait:6:' "${picks[@]}" Enter "wait:$settle:" >/dev/null 2>&1; then
+    ' ff' "$file" Enter ":$line" Enter ' db' ${prelude[@]+"${prelude[@]}"} \
+    'wait:3: dc' 'wait:6:' ${picks[@]+"${picks[@]}"} Enter "wait:$settle:" >/dev/null 2>&1; then
     echo "FAILED: the driver gave up"
     failures+=("$lang: the driver gave up")
     continue

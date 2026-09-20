@@ -121,7 +121,7 @@ SCENARIOS=(
   "debug-ui|Debugger breakpoint and menu|14|➜| ff|app.py|Enter|:5|Enter| db| d"
   # -- the editor itself -----------------------------------------------------
   "lazy|Plugin manager|14|lazy.nvim| l"
-  "mason|Tool installer|14|Language Filter| cm"
+  "mason|Tool installer|14|Language Filter|wait:4: cm"
   "colorscheme|Colourscheme picker|14|Colorschemes| uC"
   "health|Which language servers this project provides|14|language servers|:checkhealth dotfiles|Enter"
   "notifications|Notification history|14|Notifications| sg|validateToken|M-c|Escape|wait:2: n"

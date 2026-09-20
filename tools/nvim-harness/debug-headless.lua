@@ -103,11 +103,12 @@ vim.defer_fn(function()
     end
     return finish(
       false,
-      ("never stopped: %s, session %s -- %s -- said: %s"):format(
+      ("never stopped: %s, session %s -- %s -- said: %s -- adapter: %s"):format(
         configuration.name,
         session and "open" or "gone",
         #said > 0 and table.concat(said, " | ") or "the adapter logged nothing",
-        #notices > 0 and table.concat(notices, " / ") or "nothing"
+        #notices > 0 and table.concat(notices, " / ") or "nothing",
+        (vim.inspect(dap.adapters[configuration.type] or "no adapter"):gsub("%s+", " "))
       )
     )
   end

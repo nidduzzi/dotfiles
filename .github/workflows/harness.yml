@@ -95,6 +95,20 @@ jobs:
       - name: what loads before you ask for it
         run: tools/nvim-harness/check-startup-plugins.sh
 
+      # The baseline is a stock LazyVim, committed under trials/, so this
+      # needs its plugins installed as well as the configuration's. It is the
+      # gate that says which keys were taken from LazyVim on purpose, and it
+      # caught four that were not written down: the git pickers, rebound
+      # through the trust gate.
+      - name: keys taken from stock LazyVim
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/tools/nvim-harness/trials
+          NVIM_APPNAME: lazyvim-snacks
+        run: |
+          nvim --headless "+Lazy! restore" +qa
+      - name: the collision check
+        run: tools/nvim-harness/check-keymaps.sh
+
       - name: one press closes what is open
         run: tools/nvim-harness/check-dismiss.sh
 

@@ -41,3 +41,11 @@ n	grn
 n	grr
 n	grt
 n	grx
+
+# The git pickers, rebound through the trust gate. LazyVim's versions run git
+# directly, and a repository's own .git/config names programs git executes.
+# Same pickers, refused in a project nobody has vouched for. See DECISIONS 44.
+n	<Space>gs
+n	<Space>gl
+n	<Space>gL
+n	<Space>gb

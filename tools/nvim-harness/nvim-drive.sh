@@ -280,8 +280,15 @@ for batch in "$@"; do
     # commands sent as separate key batches concatenate into one command line
     # when a dashboard has focus, which fails with E5107 and leaves the editor
     # showing something other than what was asked for.
+    #
+    # The command is embedded in a Vimscript string literal, where a single
+    # quote ends it: a Lua command written with 'quoted' strings -- which is
+    # most of them -- arrived as a syntax error, and the error went to
+    # /dev/null. Vimscript escapes one by doubling it.
+    quoted="${batch#ex:}"
+    quoted="${quoted//\'/\'\'}"
     nvim --server "$RPC" --remote-send "<C-\><C-N>" 2>/dev/null || true
-    nvim --server "$RPC" --remote-expr "execute('${batch#ex:}')" >/dev/null 2>&1 || true
+    nvim --server "$RPC" --remote-expr "execute('$quoted')" >/dev/null 2>&1 || true
   elif [[ "$batch" == keys:* ]]; then
     # Several keys together, with no pause between them. A leader sequence sent
     # as separate batches has seconds between its keys, and a mapping split

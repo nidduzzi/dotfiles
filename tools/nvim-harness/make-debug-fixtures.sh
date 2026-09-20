@@ -234,12 +234,18 @@ function App(): HTMLElement {
 }
 
 document.body.append(App());
+
+// Again every two seconds, so a debugger that attaches after the page loaded
+// still has something to stop on. A page that only runs its code once can be
+// debugged by reloading it, which a breakpoint check cannot drive.
+setInterval(() => document.body.replaceChildren(App()), 2000);
 EOF
 cat > "$DIR/tsx/index.html" <<'EOF'
 <!doctype html>
 <meta charset="utf-8">
 <title>tsx fixture</title>
-<script src="index.js"></script>
+<!-- defer, or the script runs before there is a body to append to -->
+<script defer src="index.js"></script>
 EOF
 cat > "$DIR/tsx/package.json" <<'EOF'
 {

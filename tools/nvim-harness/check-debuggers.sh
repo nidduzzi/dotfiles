@@ -29,31 +29,52 @@ done
 
 mkdir -p "$OUT_DIR"
 
-# language | file | breakpoint line | the program that must be on PATH | expect
+# language | file | breakpoint line | the program that must be there |
+# seconds to wait for the session | which configuration to pick | expect
 #
 # `expect` is matched against the stopped frame. Every one of them names a
 # value the adapter computed -- the arguments the call was made with, or the
 # stack it stopped in -- so a frame drawn without a session cannot match.
-# language | file | breakpoint line | the program that must be there |
-# seconds to wait for the session | expect
 #
 # The wait is per language because they do not start alike: js-debug brings up
 # a server and a bootloader before the program runs, and on a cold runner that
 # took longer than the frame was captured after.
+#
+# The configuration is picked by position in the list the editor offers. 1 runs
+# the file; a .tsx file is never run, so 2 opens a browser on the dev server,
+# which is how a component is really debugged -- the browser runs compiled
+# JavaScript and the source map puts the stop back on the line you wrote.
 CASES=(
-  "python|main.py|3|python3|20|b int = 1"
-  "typescript|main.ts|2|node|40|b number = 1"
-  "c|main.c|4|codelldb|20|b int = 1"
-  "cpp|main.cpp|5|codelldb|20|b int = 1"
-  "rust|src/main.rs|2|codelldb|20|b int = 1"
-  "julia|main.jl|2|julia|30|add main.jl:2"
+  "python|main.py|3|python3|20|1|b int = 1"
+  "typescript|main.ts|2|node|40|1|b number = 1"
+  "tsx|index.tsx|9|node|60|2|b number = 1"
+  "c|main.c|4|codelldb|20|1|b int = 1"
+  "cpp|main.cpp|5|codelldb|20|1|b int = 1"
+  "rust|src/main.rs|2|codelldb|20|1|b int = 1"
+  "julia|main.jl|2|julia|30|1|add main.jl:2"
 )
+
+# The port the TSX fixture's dev script names, which is where the editor's
+# browser configuration looks: both read it from that one package.json.
+TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
+server_pid=""
+
+stop_server() {
+  [[ -n "$server_pid" ]] && kill "$server_pid" 2>/dev/null
+  server_pid=""
+}
+trap stop_server EXIT
+
+# A browser the debugger starts wants a screen, and there is none here. The
+# harness says so rather than the configuration, because a person debugging a
+# component wants to watch the page.
+HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } end end"
 
 failures=()
 checked=0
 
 for case in "${CASES[@]}"; do
-  IFS='|' read -r lang file line needs settle expect <<<"$case"
+  IFS='|' read -r lang file line needs settle choice expect <<<"$case"
 
   [[ -n "$FILTER" && ! "$lang" =~ $FILTER ]] && continue
 
@@ -72,11 +93,29 @@ for case in "${CASES[@]}"; do
   ansi="$OUT_DIR/$lang.ansi"
   drawn="$OUT_DIR/$lang.drawn"
 
+  # The page a browser configuration opens has to be served by something, and
+  # the fixture's own dev script is a plain static server.
+  prelude=()
+  if [[ "$lang" == tsx ]]; then
+    stop_server
+    (cd "$HERE/debug-fixtures/tsx" && exec python3 -m http.server "$TSX_PORT" --bind 127.0.0.1) >/dev/null 2>&1 &
+    server_pid=$!
+    prelude=("$HEADLESS")
+  fi
+
+  # Down, not j: the picker opens with its filter focused, so j is a letter
+  # typed into the filter -- which matched nothing, selected nothing, and left
+  # no session and no log to say why.
+  picks=()
+  for ((pick = 1; pick < choice; pick++)); do
+    picks+=(Down)
+  done
+
   if ! "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$HERE/debug-fixtures/$lang" \
     -t -I -e -w $((settle + 40)) -p 2 -o "$ansi" \
-    ' ff' "$file" Enter ":$line" Enter ' db' \
-    'wait:3: dc' 'wait:8:Enter' "wait:$settle:" >/dev/null 2>&1; then
+    ' ff' "$file" Enter ":$line" Enter ' db' "${prelude[@]}" \
+    'wait:3: dc' 'wait:6:' "${picks[@]}" Enter "wait:$settle:" >/dev/null 2>&1; then
     echo "FAILED: the driver gave up"
     failures+=("$lang: the driver gave up")
     continue

@@ -104,7 +104,7 @@ line captures; everything below it decides.
 | `check-dismiss.sh` | an overlay one press of the dismiss key does not close, or a file it does | the config, the fixture |
 | `check-startup-paths.sh` | a way into an untrusted project that is not asked about, or a trusted one that is | the config, git |
 | `run-probes.sh -p PROJECT` | a probe that did not run, a blocking call over budget, or errors at startup | a project |
-| `check-debuggers.sh` | a language whose debugger never reached the breakpoint it was given | the config, the debug fixtures |
+| `check-debuggers.sh` | a language whose debugger never reached the breakpoint it was given, TSX in a browser included | the config, the debug fixtures, a browser |
 | `check-agent.sh` | an agent flow that opened its window and never answered | the config, a backend, real requests |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |

@@ -135,7 +135,8 @@ for case in "${CASES[@]}"; do
   prelude=()
   if [[ "$lang" == tsx ]]; then
     stop_server
-    (cd "$HERE/debug-fixtures/tsx" && exec python3 -m http.server "$TSX_PORT" --bind 127.0.0.1) >/dev/null 2>&1 &
+    (cd "$HERE/debug-fixtures/tsx" && exec python3 -m http.server "$TSX_PORT" --bind 127.0.0.1) \
+      >"$OUT_DIR/tsx.server" 2>&1 &
     server_pid=$!
     prelude=("$HEADLESS")
 
@@ -151,6 +152,12 @@ for case in "${CASES[@]}"; do
     done
     if [[ -z "$served" ]]; then
       echo "FAILED: nothing is serving the fixture on port $TSX_PORT"
+      echo "           what the server said:"
+      if [[ -s "$OUT_DIR/tsx.server" ]]; then
+        sed 's/^/           /' "$OUT_DIR/tsx.server"
+      else
+        echo "           nothing at all, from $(command -v python3 || echo 'no python3')"
+      fi
       failures+=("$lang: the fixture was not served")
       continue
     fi

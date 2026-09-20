@@ -11,13 +11,21 @@
 
 local dismiss = require("util.dismiss")
 
+--- What is on screen, ignoring notifications.
+---
+--- A notification is transient and arrives unasked --- a language server
+--- warning on a runner with no language servers, for instance --- so counting
+--- one as something the key failed to close makes the gate report on the
+--- weather. The dismiss key does hide them, on the rung below the panels.
 ---@return string
 local function windows()
   local names = {}
   for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
     local buf = vim.api.nvim_win_get_buf(win)
     local filetype = vim.bo[buf].filetype
-    names[#names + 1] = filetype ~= "" and filetype or (vim.bo[buf].buftype ~= "" and vim.bo[buf].buftype or "file")
+    if not filetype:match("^snacks_notif") then
+      names[#names + 1] = filetype ~= "" and filetype or (vim.bo[buf].buftype ~= "" and vim.bo[buf].buftype or "file")
+    end
   end
   table.sort(names)
   return table.concat(names, ",")
@@ -40,6 +48,13 @@ end
 ---@param open fun()
 ---@return string
 local function case(name, open)
+  -- Cleared first: a notification left over from the case before would be
+  -- what this one's press closes, and the panel would still be there.
+  pcall(function()
+    Snacks.notifier.hide()
+  end)
+  vim.wait(300)
+
   local before = windows()
   open()
   until_different(before, 15000)

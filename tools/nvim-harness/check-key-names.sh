@@ -22,7 +22,7 @@ APPNAME="${NVIM_TOUR_APPNAME:-nvim-lazyvim}"
 command -v tmux >/dev/null || { echo "tmux is required" >&2; exit 1; }
 
 SOCKET="key-name-check-$$"
-trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true' EXIT
+trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true; rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"' EXIT
 
 tmux -L "$SOCKET" -f /dev/null new-session -d -x 60 -y 6 "cat -v"
 sleep 0.5
@@ -41,7 +41,7 @@ emits_escape() {
 }
 
 REPORT="$(mktemp)"
-trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true; rm -f "$REPORT" "$REPORT.tokens"' EXIT
+trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true; rm -f "$REPORT" "$REPORT.tokens" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"' EXIT
 
 # Every quoted batch in the shell scripts, and every line of every .keys file.
 {

@@ -118,6 +118,9 @@ send_batch() {
 cleanup() {
   [[ "$KEEP" -eq 1 ]] && return 0
   tm kill-server 2>/dev/null || true
+  # kill-server leaves the socket behind, and a run that leaves one file per
+  # invocation in /tmp is a run that left 995 of them behind this session.
+  rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
   [[ -n "${RPC:-}" ]] && rm -f "$RPC"
 }
 trap cleanup EXIT

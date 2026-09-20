@@ -123,15 +123,6 @@ function issueToken(user) {
 module.exports = { validateToken, issueToken };
 EOF
 
-cat > src/login.js <<'EOF'
-export function login(user) {
-  return validateToken(user.token);
-}
-
-// HACK: temporary shim, remove before release
-module.exports.legacy = true;
-EOF
-
 cat > app.py <<'EOF'
 """Sample module for the feature tour."""
 
@@ -179,6 +170,20 @@ EOF
 
 git add .nvim.lua app.py lib.lua src/auth.js src/login.js
 git commit -qm "add sources"
+
+# Left uncommitted on purpose: the git signs in the gutter, the hunk preview
+# and the changed-files picker all need a file that differs from HEAD. This
+# used to be written before the commit, so it was committed with everything
+# else and the working tree was clean -- three scenarios captured a file with
+# nothing to show and the tour called them captured.
+cat > src/login.js <<'EOF'
+export function login(user) {
+  return validateToken(user.token) && user.active;
+}
+
+// HACK: temporary shim, remove before release
+module.exports.legacy = true;
+EOF
 
 # Left untracked on purpose: git status and the explorer need untracked files,
 # and nothing should be tempted to "fix" these into the history.

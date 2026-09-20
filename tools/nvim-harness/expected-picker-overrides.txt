@@ -5,3 +5,5 @@
 # that was taken by accident.
 override input <C-C> cancel -> close
 override input <C-T> tab -> trouble_open
+override input <Esc> cancel -> close
+override list <Esc> cancel -> close

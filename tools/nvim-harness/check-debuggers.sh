@@ -72,15 +72,13 @@ stop_server() {
 }
 trap stop_server EXIT
 
-# A browser the debugger starts wants a screen, and there is none here. The
-# harness says so rather than the configuration, because a person debugging a
-# component wants to watch the page.
-# Two things the harness changes about a browser configuration, neither of
-# which belongs in the configuration itself: a browser started here has no
-# screen to draw on, and the address is pinned to the one the fixture's server
-# is listening on -- on macOS `localhost` resolves to ::1 first, where nothing
-# answers, and the page never loaded.
-HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
+# Three things the harness changes about a browser configuration, none of which
+# belongs in the configuration itself: a browser started here has no screen to
+# draw on; the address is pinned to the one the fixture's server is listening
+# on, because on macOS `localhost` resolves to ::1 first where nothing answers;
+# and it gets a profile of its own, because a runner's default profile is not
+# a place a browser can always start from.
+HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
 
 failures=()
 checked=0

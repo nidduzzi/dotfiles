@@ -89,6 +89,15 @@ for case in "${CASES[@]}"; do
     continue
   fi
 
+  # The browser runs compiled JavaScript, and make-debug-fixtures.sh compiles
+  # it only where a TypeScript compiler was found. Without it the page loads
+  # nothing, the breakpoint stays provisional, and the gate would report that
+  # as a debugger that did not stop.
+  if [[ "$lang" == tsx && ! -f "$HERE/debug-fixtures/tsx/index.js" ]]; then
+    echo "skipped, the fixture was never compiled"
+    continue
+  fi
+
   checked=$((checked + 1))
   ansi="$OUT_DIR/$lang.ansi"
   drawn="$OUT_DIR/$lang.drawn"

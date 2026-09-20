@@ -140,9 +140,9 @@ jobs:
           # here rather than leaving the gate to report a debugger that never
           # started.
           nvim --headless \
-            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
-            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
-          for tool in debugpy-adapter js-debug-adapter codelldb; do
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') and vim.uv.fs_stat(bin .. 'vtsls') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
             path="$HOME/.local/share/$NVIM_APPNAME/mason/bin/$tool"
             [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
           done

@@ -250,7 +250,10 @@ cat > "$DIR/tsx/package.json" <<'EOF'
   }
 }
 EOF
-tsc_js="$(find "${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/mason/packages/vtsls" -name tsc.js 2>/dev/null | head -1)"
+# find exits 1 when the directory is not there, and an assignment carries that
+# status: on a machine without vtsls installed this ended the whole script
+# under set -e, with nothing built and nothing said.
+tsc_js="$(find "${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/mason/packages/vtsls" -name tsc.js 2>/dev/null | head -1 || true)"
 if have node && [[ -n "$tsc_js" ]] &&
   (cd "$DIR/tsx" && node "$tsc_js" --jsx react --jsxFactory h --sourceMap --target es2017 --module none index.tsx >/dev/null 2>&1); then
   git_init "$DIR/tsx"

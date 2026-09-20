@@ -14,3 +14,7 @@ s/[[:space:]]*$//
 # capture, which depends on how fast the machine delivered them.
 / \(NORMAL\|INSERT\|VISUAL\|V-LINE\|V-BLOCK\|COMMAND\|TERMINAL\|REPLACE\|SELECT\) /s/<[0-9a-fA-F][0-9a-fA-F]>//g
 / \(NORMAL\|INSERT\|VISUAL\|V-LINE\|V-BLOCK\|COMMAND\|TERMINAL\|REPLACE\|SELECT\) /s/  */ /g
+# A picker titled after the project is as wide as that project's path, and the
+# path is replaced before this runs -- so the title's flanking rule varies by
+# where the checkout happens to live while the text says PROJECT either way.
+/╭.*\(PROJECT\|CONFIG\|BRANCH\).*╮/s/─\{2,\}/─/g

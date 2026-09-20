@@ -87,6 +87,13 @@ while getopts "a:c:n:d:s:W:H:w:p:o:ektIF" opt; do
 done
 shift $((OPTIND - 1))
 
+# The editor is started by tmux inside the project directory, so a config
+# directory named relative to the caller resolves against the project instead
+# and Neovim starts with no configuration at all -- line numbers, a plain
+# statusline, and none of the keys the batches press.
+[[ -n "$CONFIG_DIR" ]] && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
+[[ -n "$WORKDIR" ]] && WORKDIR="$(cd "$WORKDIR" && pwd)"
+
 command -v tmux >/dev/null || { echo "tmux is required" >&2; exit 1; }
 command -v nvim >/dev/null || { echo "nvim is required" >&2; exit 1; }
 

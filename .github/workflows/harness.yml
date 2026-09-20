@@ -140,7 +140,7 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/check-debuggers.sh
+        run: tools/nvim-harness/check-debuggers.sh -o "${{ runner.temp }}/nvim-debuggers"
 
       # The frame a debugger failed on is the only evidence of why: which
       # configuration ran, what the adapter said, whether anything started.
@@ -148,7 +148,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debuggers-drawn
-          path: /tmp/nvim-debuggers/*.drawn
+          path: ${{ runner.temp }}/nvim-debuggers/*.drawn
           if-no-files-found: ignore
 
       - name: screens

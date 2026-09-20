@@ -219,3 +219,71 @@ jobs:
             bash -n "$script" || { echo "syntax error: $script"; status=1; }
           done < <(find tools -name '*.sh')
           exit "$status"
+
+  # The same debuggers, on the other Unix. Nothing here is Linux-specific in
+  # principle -- codelldb, debugpy and js-debug all ship macOS builds -- and
+  # "in principle" is what this repository keeps finding to be untrue.
+  debuggers-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          ln -sfn "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: brew install tmux ripgrep fd
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless \
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') and vim.uv.fs_stat(bin .. 'vtsls') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
+            path="$HOME/.local/share/$NVIM_APPNAME/mason/bin/$tool"
+            [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
+          done
+
+      - name: the programs the debuggers run
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          tools/nvim-harness/make-debug-fixtures.sh
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/check-debuggers.sh -o "${{ runner.temp }}/nvim-debuggers"
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debuggers-drawn-macos
+          path: ${{ runner.temp }}/nvim-debuggers/*.drawn
+          if-no-files-found: ignore

@@ -39,9 +39,20 @@ status=0
 
 drive() {
   local probe_env="$1" probe_out="$2" probe_lua="$3" wait_secs="$4"
+  # stderr is kept. The driver refused to start once, with "FORCE_TRUST:
+  # unbound variable", and this reported "did not run" -- which is true and
+  # says nothing about why.
+  local complaint
+  complaint="$(mktemp)"
   env "$probe_env=$probe_out" "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$PROJECT" -t -w 90 -p "$wait_secs" \
-    "ex:luafile $HERE/$probe_lua" >/dev/null 2>&1 || true
+    "ex:luafile $HERE/$probe_lua" >/dev/null 2>"$complaint" || true
+
+  if [[ ! -s "$probe_out" && -s "$complaint" ]]; then
+    echo "the driver said:"
+    sed 's/^/  /' "$complaint"
+  fi
+  rm -f "$complaint"
 }
 
 report() {

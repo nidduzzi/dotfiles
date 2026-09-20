@@ -62,8 +62,7 @@ CAPTURE_ANSI=0
 KEEP=0
 OPEN_FILE=""
 TRUST=0
-FORCE_OPEN_FILE=""
-TRUST=0
+FORCE_TRUST=0
 NO_SHADA=0
 
 while getopts "a:c:n:d:s:W:H:w:p:o:ektIF" opt; do

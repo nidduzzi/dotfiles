@@ -99,11 +99,11 @@ line captures; everything below it decides.
 | `rung-flags-match.py` | the agent canary proving flags the editor does not send | nothing |
 | `check-key-names.sh` | a key batch tmux would send as a key rather than as text | tmux |
 | `check-picker-keys.sh` | a key the tour presses inside a picker that nothing is bound to, or a snacks key taken without saying so | the config |
-| `run-probes.sh -p PROJECT` | a blocking call over budget, or errors at startup | a project |
+| `run-probes.sh -p PROJECT` | a probe that did not run, a blocking call over budget, or errors at startup | a project |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |
 
-`.github/workflows/harness.yml` runs the first six on every push.
+`.github/workflows/harness.yml` runs the first seven on every push.
 `agent-canary.sh` needs a subscription CLI, so `canary.yml` runs it on dispatch
 rather than pretending a runner can.
 

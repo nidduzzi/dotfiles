@@ -85,6 +85,16 @@ jobs:
       - name: the keys that only exist inside a picker
         run: tools/nvim-harness/check-picker-keys.sh
 
+      # The probes are the only thing that runs this configuration's modules
+      # against a project rather than compiling them. One of them read a
+      # function as a table for weeks: the file compiled, the probe died on
+      # the line, and the gate printed the report from an earlier run.
+      - name: the probes, against the fixture
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture
+
       - name: screens
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

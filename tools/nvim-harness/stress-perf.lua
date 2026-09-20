@@ -29,7 +29,8 @@ local function timed(name, fn)
 end
 
 table.insert(out, ("project: %s"):format(vim.fn.fnamemodify(assert(vim.uv.cwd()), ":t")))
-table.insert(out, ("tracked: %d"):format(#vim.fn.systemlist("git ls-files 2>/dev/null")))
+local tracked = vim.fn.systemlist({ "git", "ls-files" })
+table.insert(out, ("tracked: %d"):format(vim.v.shell_error == 0 and #tracked or 0))
 
 local recall = require("util.recall")
 local capabilities = require("util.capabilities")

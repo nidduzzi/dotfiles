@@ -28,6 +28,13 @@ done
 [[ -d "$PROJECT" ]] || { echo "No such project: $PROJECT" >&2; exit 2; }
 
 mkdir -p "$OUT"
+
+# Cleared, because a report that did not run this time is a report from
+# whenever it last did. The fixture run printed label-studio's 5626 tracked
+# files, taken from a stress.txt written days earlier, and read as if the
+# fixture had them.
+rm -f "$OUT/stress.txt" "$OUT/perf.txt" "$OUT/parity.txt"
+
 status=0
 
 drive() {
@@ -45,6 +52,7 @@ report() {
     cat "$file"
   else
     echo "did not run"
+    status=1
   fi
 }
 

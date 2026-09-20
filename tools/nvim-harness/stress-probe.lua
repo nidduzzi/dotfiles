@@ -23,7 +23,12 @@ say("filetype", vim.bo.filetype ~= "" and vim.bo.filetype or "none")
 
 -- How much there is to search. A picker that is pleasant over 200 files can be
 -- unusable over 50000, and the number is the first thing worth knowing.
-local tracked = vim.fn.systemlist("git ls-files 2>/dev/null")
+-- A list, not a string: a string goes through 'shell', which quotes
+-- differently on Windows and needs 2>/dev/null to exist at all.
+local tracked = vim.fn.systemlist({ "git", "ls-files" })
+if vim.v.shell_error ~= 0 then
+  tracked = {}
+end
 say("tracked_files", #tracked)
 
 local all = vim.fs.find(function(name, path)
@@ -101,12 +106,11 @@ if ok_lsp then
   -- Which of the project's own binary directories actually exist here. This is
   -- the mechanism that decides whether a server is attached at all, so a
   -- project where none of them exist should attach nothing but lua_ls.
-  local present = {}
-  for _, dir in ipairs(lsp.bin_dirs or {}) do
-    if vim.fn.isdirectory(vim.fs.joinpath(assert(vim.uv.cwd()), dir)) == 1 then
-      table.insert(present, dir)
-    end
-  end
+  -- bin_dirs takes the project root and returns the directories that exist in
+  -- it. It used to be a table of names to check by hand; reading it as one
+  -- passed a function to ipairs, which ended the probe before it wrote
+  -- anything, and run-probes.sh printed the report from the run before.
+  local present = lsp.bin_dirs(assert(vim.uv.cwd()))
   say("project_bin_dirs", #present > 0 and table.concat(present, ",") or "none")
   say("lsp_baseline", table.concat(lsp.baseline or {}, ","))
 else

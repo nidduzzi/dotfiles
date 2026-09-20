@@ -28,6 +28,22 @@ local function finish(ok, message)
   vim.cmd(ok and "qa!" or "cq!")
 end
 
+-- Nothing here can answer a question. A project nobody has vouched for asks
+-- one the moment a file is opened -- which is the configuration working as
+-- intended, and, with no one at the keyboard, a wait with no end to it.
+pcall(function()
+  require("util.trust").allow(vim.fn.getcwd())
+  require("util.trust_menu").forget()
+end)
+
+-- Nor can it outlast the job that started it. A session that never answers
+-- would otherwise hold a headless editor open until CI gave up on the whole
+-- run rather than on this one case.
+vim.defer_fn(function()
+  io.stdout:write("never stopped: gave up waiting\n")
+  vim.cmd("cq!")
+end, (case.settle + 40) * 1000)
+
 vim.defer_fn(function()
   local started, dap = pcall(require, "dap")
   if not started then

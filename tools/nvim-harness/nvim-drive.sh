@@ -254,11 +254,29 @@ for batch in "$@"; do
   sleep "$wait_for"
 done
 
-if [[ "$CAPTURE_ANSI" -eq 1 ]]; then
-  capture=$(tm capture-pane -p -e -N -S 0 -E "$((ROWS - 1))")
-else
-  capture=$(tm capture-pane -p -N -S 0 -E "$((ROWS - 1))")
-fi
+# Capture when the screen has stopped moving.
+#
+# A float can exist before it has been drawn: a probe over RPC said the picker
+# was open while the captured pane showed the file underneath it, three runs
+# out of three. Waiting a fixed extra second only moves the race. Two
+# identical captures in a row mean the editor has finished redrawing, and the
+# loop gives up after a second and a half so a genuinely animated screen --- a
+# spinner, a progress message --- still produces a frame.
+grab() {
+  if [[ "$CAPTURE_ANSI" -eq 1 ]]; then
+    tm capture-pane -p -e -N -S 0 -E "$((ROWS - 1))"
+  else
+    tm capture-pane -p -N -S 0 -E "$((ROWS - 1))"
+  fi
+}
+
+capture=$(grab)
+for _ in 1 2 3 4 5 6; do
+  sleep 0.25
+  settled=$(grab)
+  [[ "$settled" == "$capture" ]] && break
+  capture=$settled
+done
 
 printf '%s\n' "$capture"
 [[ -n "$OUTFILE" ]] && printf '%s\n' "$capture" >"$OUTFILE"

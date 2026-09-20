@@ -34,20 +34,26 @@ mkdir -p "$OUT_DIR"
 # `expect` is matched against the stopped frame. Every one of them names a
 # value the adapter computed -- the arguments the call was made with, or the
 # stack it stopped in -- so a frame drawn without a session cannot match.
+# language | file | breakpoint line | the program that must be there |
+# seconds to wait for the session | expect
+#
+# The wait is per language because they do not start alike: js-debug brings up
+# a server and a bootloader before the program runs, and on a cold runner that
+# took longer than the frame was captured after.
 CASES=(
-  "python|main.py|3|python3|b int = 1"
-  "typescript|main.ts|2|node|b number = 1"
-  "c|main.c|4|codelldb|b int = 1"
-  "cpp|main.cpp|5|codelldb|b int = 1"
-  "rust|src/main.rs|2|codelldb|b int = 1"
-  "julia|main.jl|2|julia|add main.jl:2"
+  "python|main.py|3|python3|20|b int = 1"
+  "typescript|main.ts|2|node|40|b number = 1"
+  "c|main.c|4|codelldb|20|b int = 1"
+  "cpp|main.cpp|5|codelldb|20|b int = 1"
+  "rust|src/main.rs|2|codelldb|20|b int = 1"
+  "julia|main.jl|2|julia|30|add main.jl:2"
 )
 
 failures=()
 checked=0
 
 for case in "${CASES[@]}"; do
-  IFS='|' read -r lang file line needs expect <<<"$case"
+  IFS='|' read -r lang file line needs settle expect <<<"$case"
 
   [[ -n "$FILTER" && ! "$lang" =~ $FILTER ]] && continue
 
@@ -68,9 +74,9 @@ for case in "${CASES[@]}"; do
 
   if ! "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$HERE/debug-fixtures/$lang" \
-    -t -I -e -w 40 -p 2 -o "$ansi" \
+    -t -I -e -w $((settle + 40)) -p 2 -o "$ansi" \
     ' ff' "$file" Enter ":$line" Enter ' db' \
-    'wait:3: dc' 'wait:8:Enter' 'wait:20:' >/dev/null 2>&1; then
+    'wait:3: dc' 'wait:8:Enter' "wait:$settle:" >/dev/null 2>&1; then
     echo "FAILED: the driver gave up"
     failures+=("$lang: the driver gave up")
     continue

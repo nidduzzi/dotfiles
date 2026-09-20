@@ -110,6 +110,16 @@ for case in "${CASES[@]}"; do
     continue
   fi
 
+  # Asked of the editor rather than guessed at here, so the gate and the
+  # configuration are looking for the same browser in the same places.
+  if [[ "$lang" == tsx ]] && [[ -z "$(
+    env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_ROOT" \
+      nvim --headless +"lua io.stdout:write(require('util.browser').executable() or '')" +qa 2>/dev/null
+  )" ]]; then
+    echo "skipped, this machine has no browser to debug in"
+    continue
+  fi
+
   checked=$((checked + 1))
   ansi="$OUT_DIR/$lang.ansi"
   drawn="$OUT_DIR/$lang.drawn"

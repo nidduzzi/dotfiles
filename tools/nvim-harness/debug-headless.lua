@@ -25,6 +25,16 @@ local case = {
 
 vim.o.more = false
 
+-- What the configuration said on its way to not starting a session. The
+-- adapter that cannot be found says so in a notification, which in a headless
+-- editor goes nowhere at all.
+local notices = {}
+local notify = vim.notify
+vim.notify = function(message, level, opts)
+  notices[#notices + 1] = tostring(message):gsub("%s+", " ")
+  return notify(message, level, opts)
+end
+
 local function finish(ok, message)
   -- Flushed, because the quit that follows does not: on a first Windows run
   -- the answer was written and then thrown away with the process.
@@ -93,10 +103,11 @@ vim.defer_fn(function()
     end
     return finish(
       false,
-      ("never stopped: %s, session %s -- %s"):format(
+      ("never stopped: %s, session %s -- %s -- said: %s"):format(
         configuration.name,
         session and "open" or "gone",
-        #said > 0 and table.concat(said, " | ") or "the adapter logged nothing"
+        #said > 0 and table.concat(said, " | ") or "the adapter logged nothing",
+        #notices > 0 and table.concat(notices, " / ") or "nothing"
       )
     )
   end

@@ -208,6 +208,57 @@ else
   skipped+=("julia: no julia, or DebugAdapter would not install")
 fi
 
+# TSX in a browser, which is how TSX is really debugged: the browser runs the
+# compiled JavaScript and the source map is what puts the breakpoint back on
+# the line you wrote. The compiler is the one vtsls ships, so nothing is
+# installed for this; the JSX factory is a local function so no framework is
+# either.
+mkdir -p "$DIR/tsx"
+cat > "$DIR/tsx/index.tsx" <<'EOF'
+function h(tag: string, props: Record<string, string> | null, ...children: string[]): HTMLElement {
+  const element = document.createElement(tag);
+  for (const [name, value] of Object.entries(props ?? {})) element.setAttribute(name, value);
+  for (const child of children) element.append(child);
+  return element;
+}
+
+function add(a: number, b: number): number {
+  const sum = a + b;
+  return sum;
+}
+
+function App(): HTMLElement {
+  let total = 0;
+  for (let i = 1; i <= 5; i++) total = add(total, i);
+  return <div id="total">{`total=${total}`}</div>;
+}
+
+document.body.append(App());
+EOF
+cat > "$DIR/tsx/index.html" <<'EOF'
+<!doctype html>
+<meta charset="utf-8">
+<title>tsx fixture</title>
+<script src="index.js"></script>
+EOF
+cat > "$DIR/tsx/package.json" <<'EOF'
+{
+  "name": "tsx-fixture",
+  "private": true,
+  "scripts": {
+    "dev": "python3 -m http.server --port 5599"
+  }
+}
+EOF
+tsc_js="$(find "${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/mason/packages/vtsls" -name tsc.js 2>/dev/null | head -1)"
+if have node && [[ -n "$tsc_js" ]] &&
+  (cd "$DIR/tsx" && node "$tsc_js" --jsx react --jsxFactory h --sourceMap --target es2017 --module none index.tsx >/dev/null 2>&1); then
+  git_init "$DIR/tsx"
+  made+=("tsx")
+else
+  skipped+=("tsx: no node, or no TypeScript compiler in mason")
+fi
+
 echo "built: ${made[*]:-none}"
 [[ ${#skipped[@]} -gt 0 ]] && printf 'skipped:\n%s\n' "$(printf '  %s\n' "${skipped[@]}")"
 echo "in $DIR"

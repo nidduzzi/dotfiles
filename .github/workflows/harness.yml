@@ -132,7 +132,16 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: nvim --headless "+MasonInstall debugpy js-debug-adapter codelldb" +qa
+        run: |
+          # MasonInstall is asynchronous, so +qa quit before anything finished
+          # installing and the adapters were simply absent: the sessions never
+          # started and the log the gate prints was empty.
+          nvim --headless "+MasonInstall debugpy js-debug-adapter codelldb" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          for tool in debugpy-adapter js-debug-adapter codelldb; do
+            path="$HOME/.local/share/$NVIM_APPNAME/mason/bin/$tool"
+            [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
+          done
 
       - run: tools/nvim-harness/make-debug-fixtures.sh
 

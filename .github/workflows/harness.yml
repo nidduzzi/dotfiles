@@ -89,6 +89,9 @@ jobs:
       # against a project rather than compiling them. One of them read a
       # function as a table for weeks: the file compiled, the probe died on
       # the line, and the gate printed the report from an earlier run.
+      - name: the keys the capability list claims
+        run: tools/nvim-harness/check-capability-keys.sh
+
       - name: the probes, against the fixture
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

@@ -135,7 +135,10 @@ for case in "${CASES[@]}"; do
   prelude=()
   if [[ "$lang" == tsx ]]; then
     stop_server
-    (cd "$HERE/debug-fixtures/tsx" && exec python3 -m http.server "$TSX_PORT" --bind 127.0.0.1) \
+    # Served by node rather than python: this case already requires node, and
+    # on the macOS runner python's http.server bound nothing, printed nothing,
+    # and left curl timing out against a port nobody was listening on.
+    (cd "$HERE/debug-fixtures/tsx" && exec node "$HERE/serve-fixture.js" "$TSX_PORT") \
       >"$OUT_DIR/tsx.server" 2>&1 &
     server_pid=$!
     prelude=("$HEADLESS")

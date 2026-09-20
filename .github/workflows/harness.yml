@@ -95,6 +95,9 @@ jobs:
       - name: what loads before you ask for it
         run: tools/nvim-harness/check-startup-plugins.sh
 
+      - name: one press closes what is open
+        run: tools/nvim-harness/check-dismiss.sh
+
       - name: the probes, against the fixture
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

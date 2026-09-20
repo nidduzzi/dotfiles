@@ -104,6 +104,7 @@ line captures; everything below it decides.
 | `check-dismiss.sh` | an overlay one press of the dismiss key does not close, or a file it does | the config, the fixture |
 | `check-startup-paths.sh` | a way into an untrusted project that is not asked about, or a trusted one that is | the config, git |
 | `run-probes.sh -p PROJECT` | a probe that did not run, a blocking call over budget, or errors at startup | a project |
+| `check-debuggers.sh` | a language whose debugger never reached the breakpoint it was given | the config, the debug fixtures |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |
 
@@ -194,6 +195,7 @@ else needs `-F`, and wanting `-F` is worth a second thought.
 | `capability-keys.lua` | what that list claims, read from the running editor |
 | `picker-keys.lua` | the picker's resolved key table, for that gate |
 | `run-probes.sh` | gate: timings within budget, no startup errors |
+| `check-debuggers.sh` | gate: every installed adapter stops where it is told to |
 | `agent-canary.sh` | gate: an agent cannot write what its rung forbids |
 | `feature-tour.sh` | gate: sixty scenarios, each checked against what it drew |
 | `record-tour.sh` | the editing tour, one film per feature |

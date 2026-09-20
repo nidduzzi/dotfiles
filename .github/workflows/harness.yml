@@ -3,6 +3,11 @@ name: harness
 on:
   push:
   pull_request:
+  # Nightly, because the whole feature tour is sixty editors started one after
+  # another: too slow to run on a push, and the thing most worth knowing about
+  # a configuration that only moves when someone edits it.
+  schedule:
+    - cron: "0 3 * * *"
   workflow_dispatch:
     inputs:
       config_ref:
@@ -171,6 +176,23 @@ jobs:
         with:
           name: debuggers-drawn
           path: ${{ runner.temp }}/nvim-debuggers/*.drawn
+          if-no-files-found: ignore
+
+      - name: the whole feature tour
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          tools/nvim-harness/feature-tour.sh \
+            -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim \
+            -o "${{ runner.temp }}/feature-tour"
+
+      - name: the tour, however it went
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-tour
+          path: ${{ runner.temp }}/feature-tour
           if-no-files-found: ignore
 
       - name: screens

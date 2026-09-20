@@ -151,7 +151,12 @@ for case in "${CASES[@]}"; do
       sleep 1
     done
     if [[ -z "$served" ]]; then
-      echo "FAILED: nothing is serving the fixture on port $TSX_PORT"
+      echo "FAILED: nothing is serving the fixture on port '$TSX_PORT'"
+      echo "           curl says: $(curl -s -o /dev/null -w '%{http_code} exit=%{exitcode}' --max-time 2 "http://127.0.0.1:$TSX_PORT/index.js" 2>&1 || echo "exit=$?")"
+      echo "           listening: $(
+        (command -v lsof >/dev/null && lsof -nP -iTCP:"$TSX_PORT" -sTCP:LISTEN 2>/dev/null | tail -1) ||
+          echo 'lsof says nothing'
+      )"
       echo "           what the server said:"
       if [[ -s "$OUT_DIR/tsx.server" ]]; then
         sed 's/^/           /' "$OUT_DIR/tsx.server"

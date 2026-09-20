@@ -156,7 +156,14 @@ for case in "${CASES[@]}"; do
       if [[ -s "$OUT_DIR/tsx.server" ]]; then
         sed 's/^/           /' "$OUT_DIR/tsx.server"
       else
+        # Nothing in the background server's output is normal -- it prints
+        # only when asked for something. Starting one in the foreground is
+        # what shows the refusal: a port in use, a missing module, a python
+        # that is not there.
         echo "           nothing at all, from $(command -v python3 || echo 'no python3')"
+        echo "           starting one in the foreground:"
+        (cd "$HERE/debug-fixtures/tsx" &&
+          timeout 3 python3 -m http.server "$TSX_PORT" --bind 127.0.0.1 2>&1 | sed 's/^/           /') || true
       fi
       failures+=("$lang: the fixture was not served")
       continue

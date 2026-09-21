@@ -40,12 +40,15 @@ PROJECT=""
 CONFIG_DIR="${NVIM_TOUR_CONFIG:-$HOME/dotfiles/.worktrees/cfg}"
 APPNAME="${NVIM_TOUR_APPNAME:-nvim-lazyvim}"
 
-while getopts "o:p:c:n:" opt; do
+BACKEND="hermes"
+
+while getopts "o:p:c:n:b:" opt; do
   case "$opt" in
     o) OUT="$OPTARG" ;;
     p) PROJECT="$OPTARG" ;;
     c) CONFIG_DIR="$OPTARG" ;;
     n) APPNAME="$OPTARG" ;;
+    b) BACKEND="$OPTARG" ;;
     *) exit 2 ;;
   esac
 done
@@ -54,15 +57,19 @@ shift $((OPTIND - 1))
 [[ -n "$PROJECT" ]] || { echo "A project to record against is required: -p DIR" >&2; exit 2; }
 [[ -d "$PROJECT" ]] || { echo "No such project: $PROJECT" >&2; exit 2; }
 
-if [[ -z "${CUSTOM_BASE_URL:-}" ]]; then
+# Hermes answers from a local model, which costs nothing and needs an endpoint.
+# Claude answers from a hosted one, which costs money and needs none. The tour
+# reads the same either way; what changes is who pays and how long the waits
+# have to be.
+if [[ "$BACKEND" == "hermes" && -z "${CUSTOM_BASE_URL:-}" ]]; then
   echo "CUSTOM_BASE_URL is not set, so there is no model to ask." >&2
-  echo "Source the environment that points Hermes at one first." >&2
+  echo "Source the environment that points Hermes at one first, or -b claude." >&2
   exit 2
 fi
 
 mkdir -p "$OUT"
 
-# Switch the editor to Hermes for the whole tour, the way anyone would: the
+# Switch the editor to the backend being recorded, the way anyone would: the
 # key that opens the agent picker, the name typed into it, Enter. An earlier
 # version set the Lua field directly, which recorded a line nobody types and
 # taught the harness's shortcut rather than the editor's key.
@@ -70,7 +77,7 @@ mkdir -p "$OUT"
 # Every film starts a fresh editor, so every film has to do it. That is not
 # padding: the switch is a session setting, and a tour that hid it would leave
 # "which agent is answering this" unanswered in every frame.
-SWITCH=('Space' 'au' 'hermes' 'Enter')
+SWITCH=('Space' 'au' "$BACKEND" 'Enter')
 
 # Scene setting, in keys. <leader>ff finds the file, / finds the function, 8j
 # puts the cursor inside it.

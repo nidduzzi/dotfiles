@@ -114,8 +114,13 @@ vim.defer_fn(function()
     -- The adapter's own last words, because "session gone" is the symptom of
     -- every possible cause: not installed, would not start, could not find
     -- the program, stopped somewhere else.
+    -- nvim-dap writes its own log through dap.log's create_logger, which asks
+    -- stdpath("log") -- an alias for stdpath("state") on current Neovim, and
+    -- neither one is stdpath("cache"). Read from the wrong directory, this
+    -- said "the adapter logged nothing" on every failure this ever reported,
+    -- which was true of the path and not of the adapter.
     local said = {}
-    local log = vim.fn.stdpath("cache") .. "/dap.log"
+    local log = vim.fn.stdpath("log") .. "/dap.log"
     if vim.uv.fs_stat(log) then
       local lines = vim.fn.readfile(log)
       for index = math.max(1, #lines - 8), #lines do

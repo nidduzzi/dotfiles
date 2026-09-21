@@ -124,7 +124,10 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture
+        # -s exercises lsp-parity.lua: it opens a file containing the symbol,
+        # waits for lua_ls to attach, and asks it every request the fixture's
+        # own workflow makes. Never passed here before, so this never ran in CI.
+        run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture -s 'M.add'
 
       # The runner's node decides whether a .ts file runs at all: below 22.6
       # nothing strips the types, the configuration starts main.ts under a node

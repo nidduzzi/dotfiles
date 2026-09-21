@@ -21,7 +21,11 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_ROOT="${NVIM_TOUR_CONFIG:-$HERE/../../.worktrees/cfg}"
 APPNAME="${NVIM_TOUR_APPNAME:-nvim-lazyvim}"
 TESTS_DIR="$CONFIG_ROOT/$APPNAME/tests/screen"
-NORMALISE="$HERE/screen-normalise.sed"
+# Python rather than sed: \b, \| and \{n,\} are GNU extensions and macOS
+# ships the BSD one, where the branch was never replaced and the statusline
+# never collapsed -- so every screen differed for reasons that had nothing to
+# do with the editor.
+NORMALISE="$HERE/screen-normalise.py"
 UPDATE=0
 WITH_LSP=0
 ATTEMPTS=3
@@ -63,13 +67,10 @@ read_batches() {
 }
 
 normalise() {
-  sed -e "s|$WORKDIR_REAL|PROJECT|g" \
-      -e "s|$WORKDIR_TILDE|PROJECT|g" \
-      -e "s|$CONFIG_REAL|CONFIG|g" \
-      -e "s|$CONFIG_GIVEN|CONFIG|g" \
-      -e "s|$CONFIG_TILDE|CONFIG|g" \
-      -f "$NORMALISE" \
-      -e "s/\\b$BRANCH\\b/BRANCH/g"
+  python3 "$NORMALISE" \
+    --project "$WORKDIR_REAL" --project "$WORKDIR_TILDE" \
+    --config "$CONFIG_REAL" --config "$CONFIG_GIVEN" --config "$CONFIG_TILDE" \
+    --branch "$BRANCH"
 }
 
 capture() {

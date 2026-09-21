@@ -78,7 +78,7 @@ trap stop_server EXIT
 # on, because on macOS `localhost` resolves to ::1 first where nothing answers;
 # and it gets a profile of its own, because a runner's default profile is not
 # a place a browser can always start from.
-HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = vim.env.NVIM_DEBUG_TRACE } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
+HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = 'TRACE_FILE' } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
 
 failures=()
 checked=0
@@ -139,10 +139,12 @@ for case in "${CASES[@]}"; do
     (cd "$HERE/debug-fixtures/tsx" && exec node "$HERE/serve-fixture.js" "$TSX_PORT") \
       >"$OUT_DIR/tsx.server" 2>&1 &
     server_pid=$!
-    prelude=("$HEADLESS")
     # js-debug's own log, which is the only place a browser that never
-    # connected explains itself.
-    export NVIM_DEBUG_TRACE="$OUT_DIR/tsx.jsdebug.log"
+    # connected explains itself. Written into the command rather than passed
+    # in the environment: the editor is started by tmux, which does not
+    # inherit this shell's, so the trace was never asked for at all.
+    rm -f "$OUT_DIR/tsx.jsdebug.log"
+    prelude=("${HEADLESS//TRACE_FILE/$OUT_DIR\/tsx.jsdebug.log}")
 
     # Both halves said out loud, because a page that does not load and a
     # browser that does not start draw the same empty frame.

@@ -288,7 +288,14 @@ for batch in "$@"; do
     quoted="${batch#ex:}"
     quoted="${quoted//\'/\'\'}"
     nvim --server "$RPC" --remote-send "<C-\><C-N>" 2>/dev/null || true
-    nvim --server "$RPC" --remote-expr "execute('$quoted')" >/dev/null 2>&1 || true
+    if ! nvim --server "$RPC" --remote-expr "execute('$quoted')" >/dev/null 2>&1; then
+      # Typed instead, because the RPC call failed. On macOS it failed every
+      # time and said so only to /dev/null: every Ex command the harness sent
+      # there was dropped, and what that looked like was a browser opening a
+      # window on a machine with no screen.
+      tm send-keys -l ":${batch#ex:}"
+      tm send-keys Enter
+    fi
   elif [[ "$batch" == keys:* ]]; then
     # Several keys together, with no pause between them. A leader sequence sent
     # as separate batches has seconds between its keys, and a mapping split

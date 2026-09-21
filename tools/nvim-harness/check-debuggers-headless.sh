@@ -45,19 +45,21 @@ to_editor_path() {
 SCRIPT="$(to_editor_path "$HERE/debug-headless.lua")"
 CONFIG_FOR_EDITOR="$(to_editor_path "$CONFIG_ROOT")"
 
-# language | file | breakpoint line | the program that must be there | expect
+# language | file | breakpoint line | the program that must be there |
+# seconds to wait for the session | expect
 #
 # The browser case is here too: serving a page and starting a browser is a few
 # lines rather than a terminal, and it is the one case Windows could not
-# otherwise check at all.
+# otherwise check at all. It gets more time than the rest: a real browser
+# launching under CI load is the slowest thing any of these cases starts.
 CASES=(
-  "python|main.py|3|python3|main.py:3"
-  "typescript|main.ts|2|node|main.ts:2"
-  "tsx|index.tsx|9|node|index.tsx:9"
-  "c|main.c|4|codelldb|main.c:4"
-  "cpp|main.cpp|5|codelldb|main.cpp:5"
-  "rust|src/main.rs|2|codelldb|main.rs:2"
-  "julia|main.jl|2|julia|main.jl:2"
+  "python|main.py|3|python3|40|main.py:3"
+  "typescript|main.ts|2|node|40|main.ts:2"
+  "tsx|index.tsx|9|node|75|index.tsx:9"
+  "c|main.c|4|codelldb|40|main.c:4"
+  "cpp|main.cpp|5|codelldb|40|main.cpp:5"
+  "rust|src/main.rs|2|codelldb|40|main.rs:2"
+  "julia|main.jl|2|julia|40|main.jl:2"
 )
 
 OUT="${TMPDIR:-/tmp}/nvim-debuggers-headless"
@@ -84,7 +86,7 @@ failures=()
 checked=0
 
 for case in "${CASES[@]}"; do
-  IFS='|' read -r lang file line needs expect <<<"$case"
+  IFS='|' read -r lang file line needs settle expect <<<"$case"
 
   # The browser configuration is the second the editor offers for a .tsx file,
   # because a .tsx file is never simply run.
@@ -166,7 +168,7 @@ for case in "${CASES[@]}"; do
   answered="$OUT/$lang.said"
   if (
     cd "$HERE/debug-fixtures/$lang" &&
-      DEBUG_LINE="$line" DEBUG_EXPECT="$expect" DEBUG_SETTLE="${DEBUG_SETTLE:-40}" \
+      DEBUG_LINE="$line" DEBUG_EXPECT="$expect" DEBUG_SETTLE="${DEBUG_SETTLE:-$settle}" \
         DEBUG_CHOICE="$choice" \
         env ${browser_env[@]+"${browser_env[@]}"} \
         ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \

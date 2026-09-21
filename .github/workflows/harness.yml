@@ -334,21 +334,23 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: |
           nvim --headless \
-            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
-            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') and vim.uv.fs_stat(bin .. 'codelldb.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') and vim.uv.fs_stat(bin .. 'codelldb.cmd') and vim.uv.fs_stat(bin .. 'vtsls.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
           # Asked of the editor, because where mason puts things is the
           # editor's decision and it is a different directory on Windows.
           bin="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data') .. '/mason/bin') io.stdout:flush()" +qa 2>/dev/null)"
           echo "mason bin: $bin"
           ls "$bin"
-          for tool in debugpy-adapter js-debug-adapter codelldb; do
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
             ls "$bin/$tool"* >/dev/null 2>&1 || { echo "mason did not install $tool"; exit 1; }
           done
 
       - name: the programs the debuggers run
         env:
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/make-debug-fixtures.sh
+        run: |
+          tools/nvim-harness/make-debug-fixtures.sh
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
 
       # Started by hand, with no editor in the picture: if node cannot get that
       # package listening here either, the ECONNREFUSED a session reports is
@@ -383,5 +385,7 @@ jobs:
         timeout-minutes: 15
         # Rust as well: the runner has a toolchain, codelldb ships a Windows
         # build, and whether those two agree about a program built there is
-        # exactly the kind of thing that is claimed and not checked.
-        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript|rust)$'
+        # exactly the kind of thing that is claimed and not checked. And TSX in
+        # a browser, which Windows had no way to check at all until the
+        # headless path learned to serve a page and start one.
+        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript|tsx|rust)$'

@@ -47,11 +47,13 @@ CONFIG_FOR_EDITOR="$(to_editor_path "$CONFIG_ROOT")"
 
 # language | file | breakpoint line | the program that must be there | expect
 #
-# The browser case is not here: it needs a page to be served and a browser to
-# be started, which check-debuggers.sh does and this deliberately does not.
+# The browser case is here too: serving a page and starting a browser is a few
+# lines rather than a terminal, and it is the one case Windows could not
+# otherwise check at all.
 CASES=(
   "python|main.py|3|python3|main.py:3"
   "typescript|main.ts|2|node|main.ts:2"
+  "tsx|index.tsx|9|node|index.tsx:9"
   "c|main.c|4|codelldb|main.c:4"
   "cpp|main.cpp|5|codelldb|main.cpp:5"
   "rust|src/main.rs|2|codelldb|main.rs:2"
@@ -61,11 +63,33 @@ CASES=(
 OUT="${TMPDIR:-/tmp}/nvim-debuggers-headless"
 mkdir -p "$OUT"
 
+# The port the fixture's own dev script names, which is where the editor's
+# browser configuration looks: both read it from that one package.json.
+TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
+server_pid=""
+
+# The status is carried through by hand: an EXIT trap whose last command
+# succeeds hands that success to the caller.
+stop_server() {
+  local status=$?
+  if [[ -n "$server_pid" ]]; then
+    kill "$server_pid" 2>/dev/null || true
+    server_pid=""
+  fi
+  return "$status"
+}
+trap stop_server EXIT
+
 failures=()
 checked=0
 
 for case in "${CASES[@]}"; do
   IFS='|' read -r lang file line needs expect <<<"$case"
+
+  # The browser configuration is the second the editor offers for a .tsx file,
+  # because a .tsx file is never simply run.
+  choice=1
+  [[ "$lang" == tsx ]] && choice=2
 
   [[ -n "$FILTER" && ! "$lang" =~ $FILTER ]] && continue
 
@@ -91,6 +115,45 @@ for case in "${CASES[@]}"; do
     continue
   fi
 
+  # The browser case brings its own page and its own browser, and skips when
+  # either is missing rather than blaming the debugger for it.
+  browser_env=()
+  if [[ "$lang" == tsx ]]; then
+    if [[ ! -f "$HERE/debug-fixtures/tsx/index.js" ]]; then
+      echo "skipped, the fixture was never compiled"
+      continue
+    fi
+
+    browser="$(
+      env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
+        nvim --headless +"lua io.stdout:write(require('util.browser').executable() or '') io.stdout:flush()" +qa 2>/dev/null
+    )"
+    if [[ -z "$browser" ]]; then
+      echo "skipped, this machine has no browser to debug in"
+      continue
+    fi
+
+    stop_server
+    (cd "$HERE/debug-fixtures/tsx" && exec node "$HERE/serve-fixture.js" "$TSX_PORT") \
+      >"$OUT/tsx.server" 2>&1 &
+    server_pid=$!
+
+    served=""
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      served="$(curl -s --max-time 2 "http://127.0.0.1:$TSX_PORT/index.js" 2>/dev/null | head -c 20 || true)"
+      [[ -n "$served" ]] && break
+      sleep 1
+    done
+    if [[ -z "$served" ]]; then
+      echo "FAILED: nothing is serving the fixture on port '$TSX_PORT'"
+      failures+=("$lang: the fixture was not served")
+      continue
+    fi
+
+    browser_env=(DEBUG_BROWSER_HEADLESS=1)
+    printf '(browser: %s) ' "$(basename "$browser")"
+  fi
+
   checked=$((checked + 1))
 
   # No prompts, and nothing to type into one: a hit-enter prompt in a headless
@@ -104,7 +167,9 @@ for case in "${CASES[@]}"; do
   if (
     cd "$HERE/debug-fixtures/$lang" &&
       DEBUG_LINE="$line" DEBUG_EXPECT="$expect" DEBUG_SETTLE="${DEBUG_SETTLE:-40}" \
-        env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
+        DEBUG_CHOICE="$choice" \
+        env ${browser_env[@]+"${browser_env[@]}"} \
+        ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
         nvim --headless --cmd 'set nomore' --cmd 'set shortmess+=atToOF' \
           "$file" +"luafile $SCRIPT" >"$answered" 2>&1 </dev/null
   ); then

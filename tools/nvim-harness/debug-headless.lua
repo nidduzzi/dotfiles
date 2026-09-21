@@ -71,6 +71,22 @@ vim.defer_fn(function()
     return finish(false, ("no configurations for %s"):format(filetype))
   end
 
+  -- A browser started here has no screen to draw on, the address is pinned to
+  -- the one the fixture's server is listening on, and it gets a profile of its
+  -- own. None of that belongs in the configuration: a person debugging a page
+  -- wants to watch it, in the browser they already use.
+  if vim.env.DEBUG_BROWSER_HEADLESS == "1" then
+    for _, offered in ipairs(configurations) do
+      if offered.type == "pwa-chrome" then
+        offered.runtimeArgs = { "--headless=new", "--no-sandbox", "--disable-gpu" }
+        offered.userDataDir = true
+        if offered.url then
+          offered.url = offered.url:gsub("localhost", "127.0.0.1")
+        end
+      end
+    end
+  end
+
   local configuration = configurations[case.choice]
   if not configuration then
     return finish(false, ("no configuration %d for %s, only %d"):format(case.choice, filetype, #configurations))

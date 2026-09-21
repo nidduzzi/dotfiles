@@ -338,14 +338,14 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: |
           nvim --headless \
-            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
-            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') and vim.uv.fs_stat(bin .. 'codelldb.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
           # Asked of the editor, because where mason puts things is the
           # editor's decision and it is a different directory on Windows.
           bin="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data') .. '/mason/bin') io.stdout:flush()" +qa 2>/dev/null)"
           echo "mason bin: $bin"
           ls "$bin"
-          for tool in debugpy-adapter js-debug-adapter; do
+          for tool in debugpy-adapter js-debug-adapter codelldb; do
             ls "$bin/$tool"* >/dev/null 2>&1 || { echo "mason did not install $tool"; exit 1; }
           done
 
@@ -385,4 +385,7 @@ jobs:
         # a prompt takes the whole run with it otherwise, and a job that hangs
         # for six hours says nothing a job that fails in ten minutes does not.
         timeout-minutes: 15
-        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript)$'
+        # Rust as well: the runner has a toolchain, codelldb ships a Windows
+        # build, and whether those two agree about a program built there is
+        # exactly the kind of thing that is claimed and not checked.
+        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript|rust)$'

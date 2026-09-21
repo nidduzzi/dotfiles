@@ -75,7 +75,10 @@ claude_flags() {
     edit)         printf '%s\n' --tools "Read,Grep,Glob,Edit,Write" --strict-mcp-config ;;
   esac
 }
-mapfile -t CLAUDE_FLAGS < <(claude_flags)
+CLAUDE_FLAGS=()
+while IFS= read -r flag; do
+  CLAUDE_FLAGS+=("$flag")
+done < <(claude_flags)
 
 hermes_toolset() {
   case "$RUNG" in

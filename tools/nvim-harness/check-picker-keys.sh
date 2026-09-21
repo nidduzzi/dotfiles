@@ -44,7 +44,10 @@ status=0
 #
 # Only the ones a picker could plausibly own: a scenario's first batches open
 # the picker and are ordinary editor keys.
-mapfile -t driven < <(
+driven=()
+while IFS= read -r line; do
+  driven+=("$line")
+done < <(
   grep -oE '"[a-z-]+\|[^|]*\|[0-9]+\|[^"]*"' "$HERE/feature-tour.sh" |
     tr -d '"' | tr '|' '\n' |
     sed 's/^wait:[0-9]*://' |

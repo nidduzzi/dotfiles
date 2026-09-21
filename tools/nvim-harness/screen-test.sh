@@ -90,8 +90,14 @@ capture() {
   local pause
   pause="$(read_directive "$keys_file" pause 2)"
 
+  # Read line by line rather than with mapfile, which is a bash 4 builtin and
+  # macOS ships bash 3.2: there the script died on this line with
+  # "mapfile: command not found" and no screen was ever compared.
   local batches=()
-  mapfile -t batches < <(read_batches "$keys_file")
+  local batch
+  while IFS= read -r batch; do
+    batches+=("$batch")
+  done < <(read_batches "$keys_file")
 
   "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$workdir" \

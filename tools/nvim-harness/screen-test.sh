@@ -103,7 +103,7 @@ capture() {
   "$HERE/nvim-drive.sh" \
     -c "$CONFIG_ROOT" -n "$APPNAME" -d "$workdir" \
     -t -I -w 90 -p "$pause" -W "$cols" -H "$rows" \
-    "${batches[@]}" 2>/dev/null | normalise > "$out"
+    ${batches[@]+"${batches[@]}"} 2>/dev/null | normalise > "$out"
 }
 
 selected() {

@@ -78,7 +78,7 @@ trap stop_server EXIT
 # on, because on macOS `localhost` resolves to ::1 first where nothing answers;
 # and it gets a profile of its own, because a runner's default profile is not
 # a place a browser can always start from.
-HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = 'TRACE_FILE' } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end"
+HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = 'TRACE_FILE' } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end vim.fn.writefile({ 'applied' }, 'MARKER_FILE')"
 
 failures=()
 checked=0
@@ -144,8 +144,10 @@ for case in "${CASES[@]}"; do
     # in the environment: the editor is started by tmux, which does not
     # inherit this shell's, so the trace was never asked for at all.
     trace_file="$OUT_DIR/tsx.jsdebug.log"
-    rm -f "$trace_file"
-    prelude=("${HEADLESS/TRACE_FILE/$trace_file}")
+    marker="$OUT_DIR/tsx.prelude"
+    rm -f "$trace_file" "$marker"
+    prelude_command="${HEADLESS/TRACE_FILE/$trace_file}"
+    prelude=("${prelude_command/MARKER_FILE/$marker}")
 
     # Both halves said out loud, because a page that does not load and a
     # browser that does not start draw the same empty frame.
@@ -224,6 +226,10 @@ for case in "${CASES[@]}"; do
     # An empty log means nothing ever spoke to an adapter, which is a question
     # about the configurations the editor offers rather than about the
     # debugger. Ask it directly, without a terminal in the way.
+    if [[ "$lang" == tsx && ! -f "$OUT_DIR/tsx.prelude" ]]; then
+      echo "           the harness could not change the configuration: its Ex command never ran"
+    fi
+
     if [[ -s "$OUT_DIR/$lang.jsdebug.log" ]]; then
       echo "           what the browser adapter traced:"
       grep -oE '"(error|exceptionThrown|cannot|Cannot)[^"]*"' "$OUT_DIR/$lang.jsdebug.log" |

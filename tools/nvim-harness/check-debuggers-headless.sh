@@ -180,7 +180,12 @@ for case in "${CASES[@]}"; do
     # newline and the answer ends up appended to it.
     echo "$(grep -oE 'stopped at [^ ,]+' "$answered" | head -1)"
   else
-    said="$(grep -oE 'stopped at .*|never stopped: .*|no configuration[^.]*|no nvim-dap.*' "$answered" | head -1)"
+    # grep exits 1 when none of these alternates match anywhere in the file,
+    # and under pipefail that status belongs to this assignment -- which
+    # would silently end the whole script right here, inside the branch that
+    # exists to explain a failure, on any answer that happens not to contain
+    # one of these four exact phrasings.
+    said="$(grep -oE 'stopped at .*|never stopped: .*|no configuration[^.]*|no nvim-dap.*' "$answered" | head -1 || true)"
     echo "FAILED: ${said:-the editor said nothing}"
     # A real browser under contended CI hardware occasionally drops the DAP
     # session after a correct handshake, on Windows only -- DECISIONS.md 57

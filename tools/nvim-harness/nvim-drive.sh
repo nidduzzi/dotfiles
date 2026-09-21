@@ -129,6 +129,12 @@ send_batch() {
 cleanup() {
   [[ "$KEEP" -eq 1 ]] && return 0
   tm kill-server 2>/dev/null || true
+  # kill-server does not reliably take Neovim with it -- three of them were
+  # found still running hours later, reparented to init, each still holding
+  # the RPC socket of a run whose tmux server was long gone. $RPC is unique
+  # to this one process (nvim-drive-$$.sock), so this can only ever match
+  # the Neovim this run itself started.
+  pkill -f -- "--listen ${RPC:-nvim-drive-not-set}" 2>/dev/null || true
   # kill-server leaves the socket behind, and a run that leaves one file per
   # invocation in /tmp is a run that left 995 of them behind this session.
   rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"

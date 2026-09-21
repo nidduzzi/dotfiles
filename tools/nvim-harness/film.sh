@@ -129,6 +129,11 @@ send_batch() {
 
 cleanup() {
   tm kill-server 2>/dev/null || true
+  # kill-server does not reliably take Neovim with it -- see nvim-drive.sh's
+  # cleanup() for how this was found. $RPC is unique to this one process
+  # (nvim-film-$$.sock), so this can only ever match the Neovim this run
+  # itself started.
+  pkill -f -- "--listen ${RPC:-nvim-film-not-set}" 2>/dev/null || true
   rm -f "$RPC" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
 }
 trap cleanup EXIT

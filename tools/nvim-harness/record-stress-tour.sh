@@ -43,8 +43,13 @@ film_in() {
   wanted "$name" || return 0
   [[ -d "$project" ]] || { echo "  $name  SKIPPED, no $project"; return 0; }
 
+  # git exits nonzero when $project exists but is not a git repository --
+  # true of at least two real directories this harness has pointed at --
+  # and under pipefail that status belongs to this assignment, ending the
+  # whole recording run silently before the SKIPPED message a few lines
+  # up ever gets the chance to explain why.
   local tracked
-  tracked="$(git -C "$project" ls-files 2>/dev/null | wc -l)"
+  tracked="$(git -C "$project" ls-files 2>/dev/null | wc -l || true)"
   echo "  $name  ($(basename "$project"), $tracked files)"
 
   "$HERE/film.sh" -c "$CONFIG_ROOT" -n "$APPNAME" -d "$project" -t \

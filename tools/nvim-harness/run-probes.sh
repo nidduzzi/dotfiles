@@ -103,11 +103,42 @@ else
 fi
 
 if [[ -n "$PARITY_SYMBOL" ]]; then
-  env NVIM_LSP_PARITY_SYMBOL="$PARITY_SYMBOL" \
-    NVIM_LSP_PARITY="$OUT/parity.txt" "$HERE/nvim-drive.sh" \
-    -c "$CONFIG_ROOT" -n "$APPNAME" -d "$PROJECT" -t -w 90 -p 20 \
-    "ex:luafile $HERE/lsp-parity.lua" >/dev/null 2>&1 || true
-  report "what each language server answers" "$OUT/parity.txt"
+  # Driven with no file open, the probe asked the dashboard buffer what
+  # servers had attached to it, which is never any of them: every run before
+  # this one reported "cursor: ..." and nothing else, as if a language server
+  # had been asked something. A file containing the symbol is found and opened
+  # first, so there is a real buffer for one to attach to.
+  # Absolute, because the driven editor's own cwd is already $PROJECT: a
+  # path grep hands back still carrying that prefix opened $PROJECT/$PROJECT,
+  # a file that does not exist, which no error caught -- :edit on a missing
+  # path just makes an empty buffer, so the probe reported "no language
+  # server attached" and meant "wrong file" the whole time.
+  #
+  # --include has to come before --, not after: once -- ends option parsing,
+  # each --include=* is read as a literal filename to search rather than a
+  # flag, grep fails to open eight files that were never files, and the
+  # whole gate exited 2 with nothing printed -- from the one script in this
+  # harness that used -- for the reason it exists, escaping a search term
+  # that can start with a dash.
+  parity_file="$(grep -rlF \
+    --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' \
+    --include='*.go' --include='*.rs' --include='*.lua' --include='*.rb' \
+    -- "$PARITY_SYMBOL" "$PROJECT" \
+    2>/dev/null | head -1)"
+  [[ -n "$parity_file" ]] && parity_file="$(cd "$(dirname "$parity_file")" && pwd)/$(basename "$parity_file")"
+
+  if [[ -z "$parity_file" ]]; then
+    echo
+    echo "== what each language server answers =="
+    echo "no file under $PROJECT contains '$PARITY_SYMBOL'"
+    status=1
+  else
+    env NVIM_LSP_PARITY_SYMBOL="$PARITY_SYMBOL" NVIM_LSP_PARITY_FILE="$parity_file" \
+      NVIM_LSP_PARITY="$OUT/parity.txt" "$HERE/nvim-drive.sh" \
+      -c "$CONFIG_ROOT" -n "$APPNAME" -d "$PROJECT" -t -w 90 -p 20 \
+      "ex:luafile $HERE/lsp-parity.lua" >/dev/null 2>&1 || true
+    report "what each language server answers" "$OUT/parity.txt"
+  fi
 fi
 
 echo

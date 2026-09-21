@@ -16,8 +16,25 @@ local function line(text)
   table.insert(report, text or "")
 end
 
+-- Driven with no file open, this asked the dashboard buffer what servers had
+-- attached to it, which is never any of them: the loop over clients ran zero
+-- times and the report was one line, "cursor: ...", with nothing about a
+-- language server at all -- true of every run so far, reported as if the
+-- probe had checked something.
+local target = vim.env.NVIM_LSP_PARITY_FILE
+if target and target ~= "" then
+  vim.cmd.edit(target)
+  vim.wait(15000, function()
+    return #vim.lsp.get_clients({ bufnr = 0 }) > 0
+  end, 100)
+end
+
 local bufnr = vim.api.nvim_get_current_buf()
 local clients = vim.lsp.get_clients({ bufnr = bufnr })
+
+if target and target ~= "" and #clients == 0 then
+  line(("no language server attached to %s after 15s"):format(target))
+end
 
 --- Put the cursor on something worth asking about. A keyword or a comment
 --- answers "nothing here" for every request, which looks like a server that

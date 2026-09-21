@@ -143,8 +143,9 @@ for case in "${CASES[@]}"; do
     # connected explains itself. Written into the command rather than passed
     # in the environment: the editor is started by tmux, which does not
     # inherit this shell's, so the trace was never asked for at all.
-    rm -f "$OUT_DIR/tsx.jsdebug.log"
-    prelude=("${HEADLESS//TRACE_FILE/$OUT_DIR\/tsx.jsdebug.log}")
+    trace_file="$OUT_DIR/tsx.jsdebug.log"
+    rm -f "$trace_file"
+    prelude=("${HEADLESS/TRACE_FILE/$trace_file}")
 
     # Both halves said out loud, because a page that does not load and a
     # browser that does not start draw the same empty frame.

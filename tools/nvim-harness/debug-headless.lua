@@ -76,6 +76,11 @@ vim.defer_fn(function()
     return finish(false, ("no configuration %d for %s, only %d"):format(case.choice, filetype, #configurations))
   end
 
+  -- Everything the adapter is told and everything it says back. At the
+  -- default level a spawn that failed leaves no line at all, which is the
+  -- case that most needs one.
+  pcall(dap.set_log_level, "TRACE")
+
   vim.api.nvim_win_set_cursor(0, { case.line, 0 })
   dap.toggle_breakpoint()
   dap.run(configuration)
@@ -97,7 +102,7 @@ vim.defer_fn(function()
     local log = vim.fn.stdpath("cache") .. "/dap.log"
     if vim.uv.fs_stat(log) then
       local lines = vim.fn.readfile(log)
-      for index = math.max(1, #lines - 3), #lines do
+      for index = math.max(1, #lines - 8), #lines do
         said[#said + 1] = (lines[index] or ""):gsub("%s+", " ")
       end
     end

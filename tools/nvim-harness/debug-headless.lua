@@ -123,7 +123,7 @@ vim.defer_fn(function()
     local log = vim.fn.stdpath("log") .. "/dap.log"
     if vim.uv.fs_stat(log) then
       local lines = vim.fn.readfile(log)
-      for index = math.max(1, #lines - 8), #lines do
+      for index = math.max(1, #lines - 30), #lines do
         said[#said + 1] = (lines[index] or ""):gsub("%s+", " ")
       end
     end

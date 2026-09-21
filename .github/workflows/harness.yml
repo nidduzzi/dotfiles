@@ -285,15 +285,14 @@ jobs:
       # the browser case is open: on failure() this never ran and the trace it
       # was added to collect went with the runner.
       # The screens that need no language server, on the other Unix. They were
-      # captured on Linux; whether a terminal on macOS draws the same grid is
-      # a question nobody here has asked before.
+      # captured on Linux and all eleven match here, so the same committed
+      # frames hold both platforms to the same drawing.
       - run: tools/nvim-harness/make-fixture.sh --force
 
       - name: the screens, on macOS
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        continue-on-error: true
         run: tools/nvim-harness/screen-test.sh
 
       - if: always()

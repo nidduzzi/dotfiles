@@ -259,7 +259,15 @@ EOF
 # find exits 1 when the directory is not there, and an assignment carries that
 # status: on a machine without vtsls installed this ended the whole script
 # under set -e, with nothing built and nothing said.
-tsc_js="$(find "${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}/mason/packages/vtsls" -name tsc.js 2>/dev/null | head -1 || true)"
+# Where the editor keeps what mason installed is the editor's decision, and on
+# Windows it is nowhere near ~/.local/share -- so the compiler was declared
+# missing and the TSX fixture went unbuilt on the one platform that has no
+# other way to check a browser.
+data_dir="$(command -v nvim >/dev/null &&
+  nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data')) io.stdout:flush()" +qa 2>/dev/null || true)"
+data_dir="${data_dir:-${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}}"
+
+tsc_js="$(find "$data_dir/mason/packages/vtsls" -name tsc.js 2>/dev/null | head -1 || true)"
 if have node && [[ -n "$tsc_js" ]] &&
   (cd "$DIR/tsx" && node "$tsc_js" --jsx react --jsxFactory h --sourceMap --target es2017 --module none index.tsx >/dev/null 2>&1); then
   git_init "$DIR/tsx"

@@ -70,6 +70,54 @@ mkdir -p "$OUT"
 TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
 server_pid=""
 
+# A server-type DAP adapter (julia, js-debug's pwa-chrome) is started by
+# nvim-dap detached, in its own process group, deliberately, so it can
+# survive a Neovim that crashes. That also means a graceful `qa!`/`cq!` here
+# never runs nvim-dap's own session-close cleanup at all -- that hook is
+# scoped to closing the DAP session, not to Neovim quitting, and nvim-dap
+# registers no VimLeave autocmd to close a still-running one first. Found
+# and fixed for the tmux-driven check-debuggers.sh in DECISIONS.md entry 67
+# (over 4GB, five Chrome trees, one from the day before); this script spawns
+# nvim directly rather than through tmux, so it needed its own sweep. Once,
+# at the very end, rather than per case: nothing this script starts is
+# reparented to init until the nvim that spawned it has fully exited, so
+# every case's leftovers -- if any -- are already there to find by then.
+sweep_orphaned_adapters() {
+  local pid ppid args roots=""
+  while read -r pid ppid args; do
+    if [[ "$ppid" == "1" ]]; then
+      case "$args" in
+        *DebugAdapter.DebugSession* | *dapDebugServer.js*)
+          roots="$roots $pid"
+          ;;
+      esac
+    fi
+  done < <(ps -eo pid=,ppid=,args= 2>/dev/null)
+
+  if [[ -n "$roots" ]]; then
+    local root
+    for root in $roots; do
+      ps -A -o pid=,ppid= 2>/dev/null | awk -v root="$root" '
+        { children[$2] = children[$2] " " $1 }
+        function walk(p,   c, list, n, i) {
+          list = children[p]
+          n = split(list, c, " ")
+          for (i = 1; i <= n; i++) {
+            if (c[i] != "") {
+              print c[i]
+              walk(c[i])
+            }
+          }
+        }
+        END { print root; walk(root) }
+      '
+    done | while read -r pid; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+  fi
+  return 0
+}
+
 # The status is carried through by hand: an EXIT trap whose last command
 # succeeds hands that success to the caller.
 stop_server() {
@@ -78,6 +126,7 @@ stop_server() {
     kill "$server_pid" 2>/dev/null || true
     server_pid=""
   fi
+  sweep_orphaned_adapters
   return "$status"
 }
 trap stop_server EXIT

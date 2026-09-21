@@ -120,12 +120,29 @@ if [[ -n "$PARITY_SYMBOL" ]]; then
   # whole gate exited 2 with nothing printed -- from the one script in this
   # harness that used -- for the reason it exists, escaping a search term
   # that can start with a dash.
-  parity_file="$(grep -rlF \
-    --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' \
-    --include='*.go' --include='*.rs' --include='*.lua' --include='*.rb' \
-    -- "$PARITY_SYMBOL" "$PROJECT" \
-    2>/dev/null | head -1)"
-  [[ -n "$parity_file" ]] && parity_file="$(cd "$(dirname "$parity_file")" && pwd)/$(basename "$parity_file")"
+  # grep exits 1 when nothing matches anywhere, not an error, and pipefail
+  # carries that through | head -1 as the pipeline's own exit status. Under
+  # set -e that status belonged to this assignment, which is the whole
+  # statement, and every symbol this was tried against before happened to
+  # exist somewhere -- so a genuinely absent one was what finally reached
+  # this and ended the script here with nothing printed at all, before the
+  # "no file under..." message a few lines down ever got the chance to run.
+  parity_file="$(
+    grep -rlF \
+      --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' \
+      --include='*.go' --include='*.rs' --include='*.lua' --include='*.rb' \
+      -- "$PARITY_SYMBOL" "$PROJECT" \
+      2>/dev/null | head -1
+  )" || true
+  # An if, not a bare `&&`: when nothing matched, parity_file is empty,
+  # [[ -n "" ]] is false, and that false was this statement's own exit status
+  # under set -e -- which ended the whole script right here, silently, before
+  # the "no file under..." message below ever ran. A real project with a
+  # symbol that genuinely is not there is what finally exercised this path
+  # and found it dead: no output at all, just exit 1.
+  if [[ -n "$parity_file" ]]; then
+    parity_file="$(cd "$(dirname "$parity_file")" && pwd)/$(basename "$parity_file")"
+  fi
 
   if [[ -z "$parity_file" ]]; then
     echo

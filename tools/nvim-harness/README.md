@@ -105,6 +105,7 @@ line captures; everything below it decides.
 | `check-startup-paths.sh` | a way into an untrusted project that is not asked about, or a trusted one that is | the config, git |
 | `run-probes.sh -p PROJECT` | a probe that did not run, a blocking call over budget, or errors at startup | a project |
 | `check-debuggers.sh` | a language whose debugger never reached the breakpoint it was given, TSX in a browser included | the config, the debug fixtures, a browser |
+| `check-debuggers-headless.sh` | the same, asked of nvim-dap directly: the check for machines with no tmux | the config, the debug fixtures |
 | `check-agent.sh` | an agent flow that opened its window and never answered | the config, a backend, real requests |
 | `agent-canary.sh AGENT RUNG` | an agent writing a file it should not, or a tool registry that is not what the rung promises | that agent's CLI, network |
 | `feature-tour.sh -c CONFIG` | a scenario that could not be captured, or one whose frame does not contain what the feature draws | tmux, the fixture |
@@ -130,7 +131,7 @@ Directives are `# name: value` lines at the top of a `.keys` file: `dir`,
 `size`, `needs`, `attempts`, `pause`.
 
 A screen is compared after normalisation, and what is normalised away is in
-`screen-normalise.sed`: the clock, the branch, paths, durations, plugin
+`screen-normalise.py`: the clock, the branch, paths, durations, plugin
 counts, language-server progress, and spacing on the statusline. Each entry is
 there because it changed between two machines while the editor behaved
 identically.
@@ -197,6 +198,9 @@ else needs `-F`, and wanting `-F` is worth a second thought.
 | `picker-keys.lua` | the picker's resolved key table, for that gate |
 | `run-probes.sh` | gate: timings within budget, no startup errors |
 | `check-debuggers.sh` | gate: every installed adapter stops where it is told to |
+| `check-debuggers-headless.sh` | gate: the same on Windows, where there is no terminal to drive |
+| `debug-headless.lua` | what that gate runs inside the editor |
+| `serve-fixture.js` | serves the browser fixture, in node rather than python |
 | `check-agent.sh` | local check: review, explain and lookup answer against a real backend |
 | `agent-canary.sh` | gate: an agent cannot write what its rung forbids |
 | `feature-tour.sh` | gate: sixty scenarios, each checked against what it drew |
@@ -213,7 +217,7 @@ else needs `-F`, and wanting `-F` is worth a second thought.
 | `lsp-parity.lua` | what each language server actually answers |
 | `stress-probe.lua` | what a project looks like to the editor |
 | `stress-perf.lua` | how long the blocking calls take |
-| `screen-normalise.sed` | what a screen comparison ignores |
+| `screen-normalise.py` | what a screen comparison ignores |
 | `expected-collisions.txt` | keys taken from LazyVim on purpose |
 | `expected-dead-keys.txt` | keys left undescribed by someone else |
 | `expected-picker-overrides.txt` | picker keys taken from snacks on purpose |

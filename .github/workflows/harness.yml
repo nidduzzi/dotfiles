@@ -288,7 +288,10 @@ jobs:
         continue-on-error: true
         run: tools/nvim-harness/check-debuggers.sh -o "${{ runner.temp }}/nvim-debuggers"
 
-      - if: failure()
+      # always(), because the debugger step reports rather than fails while
+      # the browser case is open: on failure() this never ran and the trace it
+      # was added to collect went with the runner.
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debuggers-drawn-macos

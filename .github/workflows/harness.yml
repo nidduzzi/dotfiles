@@ -359,6 +359,29 @@ jobs:
           NVIM_APPNAME: nvim-lazyvim
         run: tools/nvim-harness/make-debug-fixtures.sh
 
+      # Started by hand, with no editor in the picture: if node cannot get that
+      # package listening here either, the ECONNREFUSED a session reports is
+      # about node and the package rather than about the configuration.
+      - name: the debug server, started by hand
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        timeout-minutes: 5
+        run: |
+          data="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data')) io.stdout:flush()" +qa 2>/dev/null)"
+          server="$data/mason/packages/js-debug-adapter/js-debug/src/dapDebugServer.js"
+          ls -l "$server"
+          node "$server" 5679 >server.log 2>&1 &
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            curl -s -o /dev/null --max-time 2 "http://127.0.0.1:5679/" && break
+            sleep 1
+          done
+          # Exit 52 is an empty reply, which is a socket that answered. Exit 7
+          # is nothing listening at all.
+          curl -s -o /dev/null -w 'curl exit: %{exitcode}\n' --max-time 2 "http://127.0.0.1:5679/" || true
+          echo "what the server said:"
+          cat server.log || true
+
       - name: every debugger stops where it is told to
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg

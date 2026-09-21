@@ -85,8 +85,13 @@ capture() {
   WORKDIR_REAL="$(cd "$workdir" && pwd)"
   CONFIG_REAL="$(cd "$CONFIG_ROOT" && pwd)"
   CONFIG_GIVEN="$CONFIG_ROOT"
-  WORKDIR_TILDE="${WORKDIR_REAL/#$HOME/\~}"
-  CONFIG_TILDE="${CONFIG_GIVEN/#$HOME/\~}"
+  # Built by hand rather than with a pattern substitution: the escaped tilde
+  # in the replacement survives as a backslash on bash 3.2, which is what
+  # macOS ships, and the home-shortened path then matched nothing at all.
+  WORKDIR_TILDE="$WORKDIR_REAL"
+  CONFIG_TILDE="$CONFIG_GIVEN"
+  [[ "$WORKDIR_REAL" == "$HOME"/* ]] && WORKDIR_TILDE="~${WORKDIR_REAL#"$HOME"}"
+  [[ "$CONFIG_GIVEN" == "$HOME"/* ]] && CONFIG_TILDE="~${CONFIG_GIVEN#"$HOME"}"
 
   local pause
   pause="$(read_directive "$keys_file" pause 2)"

@@ -126,15 +126,71 @@ send_batch() {
 }
 
 
+# Every process the pane's own shell ever spawned, root first. One ps call
+# rather than one per process: `ps -A -o pid=,ppid=` and a walk in awk, since
+# --ppid is a GNU-only ps flag and this needs to work on debuggers-macos too.
+collect_descendants() {
+  local root="$1"
+  ps -A -o pid=,ppid= 2>/dev/null | awk -v root="$root" '
+    { children[$2] = children[$2] " " $1 }
+    function walk(p,   c, list, n, i) {
+      list = children[p]
+      n = split(list, c, " ")
+      for (i = 1; i <= n; i++) {
+        if (c[i] != "") {
+          print c[i]
+          walk(c[i])
+        }
+      }
+    }
+    END { walk(root) }
+  '
+}
+
 cleanup() {
   [[ "$KEEP" -eq 1 ]] && return 0
+
+  # A server-type DAP adapter is started by nvim-dap detached, in its own
+  # process group, deliberately, so it can outlive a Neovim that crashes --
+  # which also means killing the pane never takes it down. Three julia
+  # DebugAdapter servers and five entire headless Chrome trees (js-debug's
+  # pwa-chrome adapter, each with its own zygote/gpu/renderer children, over
+  # 4GB together) were found still running hours after the runs that started
+  # them. Snapshotted before the pane dies, since after kill-server these are
+  # reparented to init and nothing ties them back to this run any more.
+  local pane_pid descendants
+  pane_pid="$(tm display-message -p '#{pane_pid}' 2>/dev/null || true)"
+  descendants=""
+  if [[ -n "$pane_pid" ]]; then
+    descendants="$(collect_descendants "$pane_pid" || true)"
+  fi
+
   tm kill-server 2>/dev/null || true
-  # kill-server does not reliably take Neovim with it -- three of them were
-  # found still running hours later, reparented to init, each still holding
-  # the RPC socket of a run whose tmux server was long gone. $RPC is unique
-  # to this one process (nvim-drive-$$.sock), so this can only ever match
-  # the Neovim this run itself started.
+  # kill-server does not reliably take Neovim itself down with it either --
+  # one was found still running hours later, holding the RPC socket of a run
+  # whose tmux server was long gone. $RPC is unique to this one process
+  # (nvim-drive-$$.sock), so this can only ever match the Neovim this run
+  # itself started. Redundant with the descendant walk above when that finds
+  # a pane_pid at all; cheap, and a second line of defence when it does not.
   pkill -f -- "--listen ${RPC:-nvim-drive-not-set}" 2>/dev/null || true
+
+  if [[ -n "$descendants" ]]; then
+    # Not reversed: signalling a parent before its child, when the child then
+    # exits with the parent, is a wasted second signal against an already-dead
+    # PID -- harmless, since every kill here tolerates that. `tac` would sort
+    # deepest-first properly, but it is GNU-only and this needs to work on
+    # debuggers-macos too.
+    echo "$descendants" | while IFS= read -r pid; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+    sleep 0.3
+    echo "$descendants" | while IFS= read -r pid; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL "$pid" 2>/dev/null || true
+      fi
+    done
+  fi
+
   # kill-server leaves the socket behind, and a run that leaves one file per
   # invocation in /tmp is a run that left 995 of them behind this session.
   rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"

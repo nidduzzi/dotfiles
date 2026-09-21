@@ -127,13 +127,56 @@ send_batch() {
   done
 }
 
+# Every process the pane's own shell ever spawned, root first. See
+# nvim-drive.sh's cleanup() for why this exists and why it is one ps call
+# and an awk walk rather than --ppid, which is GNU-only.
+collect_descendants() {
+  local root="$1"
+  ps -A -o pid=,ppid= 2>/dev/null | awk -v root="$root" '
+    { children[$2] = children[$2] " " $1 }
+    function walk(p,   c, list, n, i) {
+      list = children[p]
+      n = split(list, c, " ")
+      for (i = 1; i <= n; i++) {
+        if (c[i] != "") {
+          print c[i]
+          walk(c[i])
+        }
+      }
+    }
+    END { walk(root) }
+  '
+}
+
 cleanup() {
+  # See nvim-drive.sh's cleanup() for what this is and how it was found: a
+  # server-type DAP adapter (julia, js-debug's headless Chrome) is started
+  # detached, in its own process group, and does not go down with the pane.
+  local pane_pid descendants
+  pane_pid="$(tm display-message -p '#{pane_pid}' 2>/dev/null || true)"
+  descendants=""
+  if [[ -n "$pane_pid" ]]; then
+    descendants="$(collect_descendants "$pane_pid" || true)"
+  fi
+
   tm kill-server 2>/dev/null || true
-  # kill-server does not reliably take Neovim with it -- see nvim-drive.sh's
-  # cleanup() for how this was found. $RPC is unique to this one process
-  # (nvim-film-$$.sock), so this can only ever match the Neovim this run
-  # itself started.
+  # kill-server does not reliably take Neovim with it either -- $RPC is
+  # unique to this one process (nvim-film-$$.sock), so this can only ever
+  # match the Neovim this run itself started.
   pkill -f -- "--listen ${RPC:-nvim-film-not-set}" 2>/dev/null || true
+
+  if [[ -n "$descendants" ]]; then
+    echo "$descendants" | while IFS= read -r pid; do
+      kill -TERM "$pid" 2>/dev/null || true
+    done
+    sleep 0.3
+    echo "$descendants" | while IFS= read -r pid; do
+      if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL "$pid" 2>/dev/null || true
+      fi
+    done
+  fi
+
   rm -f "$RPC" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
 }
 trap cleanup EXIT

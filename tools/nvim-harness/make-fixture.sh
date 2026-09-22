@@ -152,8 +152,10 @@ EOF
 
 # Left untracked on purpose: git status and the explorer need untracked files.
 cat > buggy.lua <<'EOF'
--- NOTE: used by the harness to show the Claude review. Every function here
--- has one deliberate defect.
+-- NOTE: used by the harness to show the Claude review.
+--
+-- Every function here has a defect that a reviewer should be able to point at,
+-- so a review that finds nothing is a broken review rather than clean code.
 local M = {}
 
 --- Take the first n items. Holes when n is larger than the list.

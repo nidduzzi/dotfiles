@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -291,6 +292,24 @@ def _run_headless_case(case: Case, config_dir: str, appname: str | None, out_dir
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
 
+        # Drained on a thread, not left for communicate() at the end: a
+        # `while proc.poll() is None: sleep()` loop with stdout=PIPE and
+        # nobody reading it is a textbook deadlock -- the pipe fills (Lua
+        # tracebacks, notifications, whatever the DAP session logs while
+        # working through it) and the child blocks writing to it, which
+        # looks identical to a hung editor from out here. Captured so a
+        # timeout still has something to show for where it got stuck,
+        # rather than nothing at all.
+        chunks: list[bytes] = []
+
+        def _drain() -> None:
+            assert proc.stdout is not None
+            for chunk in iter(lambda: proc.stdout.read(4096), b""):
+                chunks.append(chunk)
+
+        reader = threading.Thread(target=_drain, daemon=True)
+        reader.start()
+
         # A hard deadline, not just debug-headless.lua's own settle timer:
         # a bad path handed to a native Windows nvim.exe (E484) leaves it
         # stuck at a hit-enter prompt before that Lua ever runs, and with no
@@ -299,16 +318,23 @@ def _run_headless_case(case: Case, config_dir: str, appname: str | None, out_dir
         # communicate() either.
         deadline = time.monotonic() + case.settle_headless + 60
         descendants: list[int] = []
+        timed_out = False
         while proc.poll() is None:
             descendants = collect_descendants(proc.pid)
             if time.monotonic() >= deadline:
+                timed_out = True
                 proc.kill()
-                proc.wait()
-                answered.write_text(f"never stopped: timed out after {case.settle_headless + 60}s")
-                return False, "FAILED: never stopped: timed out waiting for the editor"
+                break
             time.sleep(1)
-        out, _ = proc.communicate()
-        answered.write_bytes(out or b"")
+        proc.wait()
+        reader.join(timeout=5)
+        out = b"".join(chunks)
+        answered.write_bytes(out)
+
+        if timed_out:
+            tail = out.decode(errors="replace").strip().splitlines()[-5:]
+            detail = " | ".join(tail) if tail else "nothing printed before the kill"
+            return False, f"FAILED: never stopped: timed out waiting for the editor -- last seen: {detail}"
 
         # A server-type DAP adapter (julia, js-debug's headless Chrome) is
         # started detached, in its own process group, so it survives Neovim

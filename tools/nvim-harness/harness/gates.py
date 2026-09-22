@@ -64,6 +64,15 @@ def run_lua_probe(
     os.close(fd)
     report_path = Path(report_name)
 
+    # config_dir/appname default here, not in each caller: every caller of
+    # this helper had the same gap -- None passed straight through to
+    # NvimDriver, which has no fallback of its own, so a bare CI invocation
+    # (no -c/-n, no XDG_CONFIG_HOME/NVIM_APPNAME env, matching how these
+    # gates were always called) launched Neovim with no config at all
+    # instead of this one, and the probe correctly reported nothing.
+    config_dir = config_dir or CONFIG_ROOT_DEFAULT
+    appname = appname or APPNAME_DEFAULT
+
     env = {out_env: str(report_path), **(extra_env or {})}
     backup = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
@@ -281,6 +290,10 @@ _ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
 
 
 def check_startup_paths(config_dir: str | None = None, appname: str | None = None) -> int:
+    # See run_lua_probe: a bare CI invocation passes neither, and drive()
+    # has no fallback of its own.
+    config_dir = config_dir or CONFIG_ROOT_DEFAULT
+    appname = appname or APPNAME_DEFAULT
     project = Path(tempfile.mkdtemp())
     try:
         (project / "src").mkdir()

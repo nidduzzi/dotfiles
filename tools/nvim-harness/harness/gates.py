@@ -1,11 +1,11 @@
 """Gate checks: assert something about the config, exit non-zero on failure.
 
 Replaces check-syntax.sh, check-startup-plugins.sh, check-capability-keys.sh,
-check-picker-keys.sh, check-startup-paths.sh, check-dismiss.sh and
-check-key-names.sh. check-capability-keys/dismiss/startup-plugins shared an
-identical control skeleton in bash (ensure the fixture exists, drive a `.lua`
-probe with a report-file env var, assert the report is non-empty, parse it);
-that skeleton is `run_lua_probe` below.
+check-picker-keys.sh, check-startup-paths.sh, check-dismiss.sh,
+check-key-names.sh and check-keymaps.sh. check-capability-keys/dismiss/
+startup-plugins shared an identical control skeleton in bash (ensure the
+fixture exists, drive a `.lua` probe with a report-file env var, assert the
+report is non-empty, parse it); that skeleton is `run_lua_probe` below.
 """
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .driver import HARNESS_DIR, drive, is_key_name
 from .fixtures import build_fixture
+from . import keymaps as _keymaps
 
 CONFIG_ROOT_DEFAULT = os.environ.get(
     "NVIM_TOUR_CONFIG", str((HARNESS_DIR / ".." / ".." / ".worktrees" / "cfg").resolve())
@@ -460,6 +461,159 @@ def check_key_names(dirs: list[str] | None = None) -> int:
         (Path(tmux_tmpdir) / f"tmux-{os.getuid()}" / socket).unlink(missing_ok=True)
 
 
+# -- check-keymaps -------------------------------------------------
+
+BASELINE_DIR_DEFAULT = str(HARNESS_DIR / "trials")
+BASELINE_APP_DEFAULT = "lazyvim-snacks"
+
+
+def _dump_keymaps(config_dir: str, appname: str, fixture: Path) -> str:
+    """A file has to be open first: buffer-local mappings and attached
+    servers are only real once a filetype is focused (keymap-audit.lua's own
+    header says the same)."""
+    fd, out_name = tempfile.mkstemp()
+    os.close(fd)
+    out_path = Path(out_name)
+    backup = os.environ.get("NVIM_KEYMAP_DUMP")
+    os.environ["NVIM_KEYMAP_DUMP"] = str(out_path)
+    try:
+        drive(
+            ["Space", "ff", "lib.lua", "Enter",
+             f"ex:lua dofile('{HARNESS_DIR / 'keymap-dump.lua'}')"],
+            config_dir=config_dir, appname=appname, workdir=str(fixture),
+            trust=True, boot_wait=24, key_wait=3,
+        )
+    finally:
+        if backup is None:
+            os.environ.pop("NVIM_KEYMAP_DUMP", None)
+        else:
+            os.environ["NVIM_KEYMAP_DUMP"] = backup
+    try:
+        return out_path.read_text() if out_path.stat().st_size else ""
+    finally:
+        out_path.unlink(missing_ok=True)
+
+
+def check_keymaps(
+    config_dir: str | None = None,
+    appname: str | None = None,
+    baseline_dir: str | None = None,
+    baseline_app: str | None = None,
+) -> int:
+    config_dir = config_dir or CONFIG_ROOT_DEFAULT
+    appname = appname or APPNAME_DEFAULT
+    baseline_dir = baseline_dir or BASELINE_DIR_DEFAULT
+    baseline_app = baseline_app or BASELINE_APP_DEFAULT
+    fixture = _ensure_fixture()
+    status = 0
+
+    print("== collisions against stock LazyVim ==")
+    baseline_json = _dump_keymaps(baseline_dir, baseline_app, fixture)
+    current_json = _dump_keymaps(config_dir, appname, fixture)
+    if not baseline_json:
+        print(f"Could not dump keymaps for {baseline_app}", file=sys.stderr)
+        status = 1
+    if not current_json:
+        print(f"Could not dump keymaps for {appname}", file=sys.stderr)
+        status = 1
+    if baseline_json and current_json:
+        fd, bpath = tempfile.mkstemp()
+        os.write(fd, baseline_json.encode())
+        os.close(fd)
+        fd, cpath = tempfile.mkstemp()
+        os.write(fd, current_json.encode())
+        os.close(fd)
+        try:
+            code, out = _keymaps.check_collisions(
+                bpath, cpath, str(HARNESS_DIR / "expected-collisions.txt"), quiet=True
+            )
+            print(out, end="")
+            if code:
+                status = 1
+        finally:
+            Path(bpath).unlink(missing_ok=True)
+            Path(cpath).unlink(missing_ok=True)
+
+    print()
+    print("== keys bound twice in this config ==")
+    # nvim-lazyvim, literally: the same fixed name check-keymaps.sh used,
+    # not derived from appname.
+    config_lua = Path(config_dir).parent / "nvim-lazyvim"
+    if not config_lua.is_dir():
+        config_lua = Path(config_dir) / appname
+    code, out = _keymaps.check_duplicates(str(config_lua / "lua"))
+    print(out, end="")
+    if code:
+        status = 1
+
+    print()
+    print("== dead keys and keys that describe nothing ==")
+    fd, audit_name = tempfile.mkstemp()
+    os.close(fd)
+    audit_path = Path(audit_name)
+    backup = os.environ.get("NVIM_KEYMAP_AUDIT")
+    os.environ["NVIM_KEYMAP_AUDIT"] = str(audit_path)
+    try:
+        drive(
+            ["Space", "ff", "lib.lua", "Enter",
+             f"ex:lua dofile('{HARNESS_DIR / 'keymap-audit.lua'}')"],
+            config_dir=config_dir, appname=appname, workdir=str(fixture),
+            trust=True, boot_wait=24, key_wait=3,
+        )
+    finally:
+        if backup is None:
+            os.environ.pop("NVIM_KEYMAP_AUDIT", None)
+        else:
+            os.environ["NVIM_KEYMAP_AUDIT"] = backup
+
+    allowed_path = HARNESS_DIR / "expected-dead-keys.txt"
+    allowed = set()
+    if allowed_path.is_file():
+        allowed = {
+            ln for ln in allowed_path.read_text().splitlines()
+            if ln.strip() and not ln.startswith("#")
+        }
+
+    if audit_path.stat().st_size:
+        audit_text = audit_path.read_text()
+        audit_path.unlink(missing_ok=True)
+        lines = audit_text.splitlines()
+
+        dead = [
+            ln for ln in lines
+            if ("DEAD" in ln or "EMPTY" in ln or "names code" in ln)
+            and "Plug" not in ln and ln not in allowed
+        ]
+        if dead:
+            for ln in dead:
+                print(ln)
+            print()
+            print(f"{len(dead)} key(s) are bound, appear in the hints, and do nothing")
+            print(f"or describe nothing. Fix them, or add them to {allowed_path.name} with a reason.")
+            status = 1
+        else:
+            print("none")
+
+        print()
+        print("== single keys a plugin took over without describing ==")
+        taken = [ln for ln in lines if ln.startswith("TAKEN") and ln not in allowed]
+        if taken:
+            for ln in taken:
+                print(ln)
+            print()
+            print("A single key was taken over without a description. Describe it, or add")
+            print(f"it to {allowed_path.name} with a reason.")
+            status = 1
+        else:
+            print("none")
+    else:
+        audit_path.unlink(missing_ok=True)
+        print("audit did not run", file=sys.stderr)
+        status = 1
+
+    return status
+
+
 def _cli() -> int:
     import argparse
 
@@ -490,6 +644,12 @@ def _cli() -> int:
     p.add_argument("-c", dest="config_dir")
     p.add_argument("-n", dest="appname")
 
+    p = sub.add_parser("keymaps")
+    p.add_argument("-c", dest="config_dir")
+    p.add_argument("-n", dest="appname")
+    p.add_argument("-b", dest="baseline_dir")
+    p.add_argument("-B", dest="baseline_app")
+
     p = sub.add_parser("key-names")
     p.add_argument("dirs", nargs="*")
 
@@ -507,6 +667,8 @@ def _cli() -> int:
         return check_startup_paths(args.config_dir, args.appname)
     if args.gate == "dismiss":
         return check_dismiss(args.config_dir, args.appname)
+    if args.gate == "keymaps":
+        return check_keymaps(args.config_dir, args.appname, args.baseline_dir, args.baseline_app)
     if args.gate == "key-names":
         return check_key_names(args.dirs)
     return 2

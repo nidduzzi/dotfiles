@@ -197,7 +197,7 @@ def run(
         if pattern and not pattern.search(scenario.name):
             continue
 
-        print(f"{scenario.name:<16} {scenario.description} ... ", end="")
+        print(f"{scenario.name:<16} {scenario.description} ... ", end="", flush=True)
         sys.stdout.flush()
 
         ansi = out / f"{scenario.name}.ansi"

@@ -86,10 +86,18 @@ def _editor_env(appname: str | None, config_dir: str) -> dict:
 
 
 def _ask_editor(env: dict, lua_expr: str) -> str:
-    result = subprocess.run(
-        ["nvim", "--headless", f"+lua io.stdout:write({lua_expr}) io.stdout:flush()", "+qa"],
-        env=env, capture_output=True, text=True,
-    )
+    # A timeout, not just stdin=DEVNULL: a headless editor stuck at a
+    # hit-enter prompt (a bad path, E484) hangs regardless, and this call
+    # runs once before the per-case loop even starts -- with no bound here,
+    # nothing prints at all, for the whole run, before the job's own blunt
+    # CI-level timeout finally kills it.
+    try:
+        result = subprocess.run(
+            ["nvim", "--headless", f"+lua io.stdout:write({lua_expr}) io.stdout:flush()", "+qa"],
+            env=env, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        return ""
     return result.stdout.strip()
 
 
@@ -169,10 +177,14 @@ def _what_editor_offers(appname: str | None, config_dir: str, lang_dir: Path, fi
         "print(ft .. ': ' .. (#names > 0 and table.concat(names, ' | ') or 'no configurations')) "
         "vim.cmd('qa!') end, 8000)"
     )
-    result = subprocess.run(
-        ["nvim", "--headless", file, f"+lua {script}"],
-        cwd=lang_dir, env=_editor_env(appname, config_dir), capture_output=True, text=True,
-    )
+    try:
+        result = subprocess.run(
+            ["nvim", "--headless", file, f"+lua {script}"],
+            cwd=lang_dir, env=_editor_env(appname, config_dir), capture_output=True, text=True,
+            stdin=subprocess.DEVNULL, timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        return "           (timed out asking)"
     lines = (result.stdout + result.stderr).splitlines()[-3:]
     return "\n".join(f"           {line}" for line in lines)
 
@@ -279,9 +291,21 @@ def _run_headless_case(case: Case, config_dir: str, appname: str | None, out_dir
             stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         )
 
+        # A hard deadline, not just debug-headless.lua's own settle timer:
+        # a bad path handed to a native Windows nvim.exe (E484) leaves it
+        # stuck at a hit-enter prompt before that Lua ever runs, and with no
+        # bound here the loop waited the full 15-minute CI job timeout with
+        # nothing printed, since a stuck subprocess never reaches
+        # communicate() either.
+        deadline = time.monotonic() + case.settle_headless + 60
         descendants: list[int] = []
         while proc.poll() is None:
             descendants = collect_descendants(proc.pid)
+            if time.monotonic() >= deadline:
+                proc.kill()
+                proc.wait()
+                answered.write_text(f"never stopped: timed out after {case.settle_headless + 60}s")
+                return False, "FAILED: never stopped: timed out waiting for the editor"
             time.sleep(1)
         out, _ = proc.communicate()
         answered.write_bytes(out or b"")
@@ -350,7 +374,7 @@ def run(
         if pattern and not re.search(pattern, case.lang):
             continue
 
-        print(f"{case.lang:<12} ", end="")
+        print(f"{case.lang:<12} ", end="", flush=True)
 
         if mason_bin_cache is None:
             mason_bin_cache = _mason_bin(appname, editor_config)
@@ -370,7 +394,7 @@ def run(
             if not browser:
                 print("skipped, this machine has no browser to debug in")
                 continue
-            print(f"(browser: {Path(browser).name}) ", end="")
+            print(f"(browser: {Path(browser).name}) ", end="", flush=True)
 
         checked += 1
         if headless:

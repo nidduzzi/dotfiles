@@ -59,5 +59,10 @@ jobs:
           ref: ${{ env.CONFIG_REF }}
           path: .worktrees/nvim-lazyvim
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
       - name: the flags the editor sends and the flags the canary proves
-        run: python3 tools/nvim-harness/rung-flags-match.py
+        run: python3 tools/nvim-harness/harness.py rung-flags-match

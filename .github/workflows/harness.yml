@@ -88,7 +88,7 @@ jobs:
 
       - run: python3 tools/nvim-harness/duplicate-keys.py .worktrees/nvim-lazyvim/lua
 
-      - run: python3 tools/nvim-harness/rung-flags-match.py
+      - run: python3 tools/nvim-harness/harness.py rung-flags-match
 
       - run: python3 tools/nvim-harness/harness.py key-names
 

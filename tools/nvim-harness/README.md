@@ -105,7 +105,7 @@ line captures; everything below it decides.
 | `duplicate-keys.py LUA_DIR` | the same key bound twice in this config | nothing |
 | `harness.py keymaps` | a key taken from stock LazyVim, a key bound twice, a dead key, a key that describes nothing | the baseline trial |
 | `harness.py screens` | a screen that no longer matches its committed copy | tmux, the fixture |
-| `rung-flags-match.py` | the agent canary proving flags the editor does not send | nothing |
+| `harness.py rung-flags-match` | the agent canary proving flags the editor does not send | nothing |
 | `harness.py key-names` | a key batch tmux would send as a key rather than as text | tmux |
 | `harness.py picker-keys` | a key the tour presses inside a picker that nothing is bound to, or a snacks key taken without saying so | the config |
 | `harness.py capability-keys` | a key the capability list offers that nothing is bound to | the config, the fixture |
@@ -217,7 +217,6 @@ thought.
 | `harness/reporting.py` | ANSI-to-HTML rendering and the film/contact-sheet/tour page builders |
 | `duplicate-keys.py` | one key bound twice, by reading the source |
 | `keymap-collisions.py` | this config against the baseline trial |
-| `rung-flags-match.py` | the canary proves the flags the editor sends |
 | `dismiss-combinations.lua` | the overlays that gate opens, one at a time |
 | `startup-plugins.lua` | which plugins are loaded, read from the running editor |
 | `capability-keys.lua` | what that list claims, read from the running editor |

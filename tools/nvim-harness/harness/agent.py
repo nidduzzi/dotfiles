@@ -67,7 +67,7 @@ def check_agent(
     for case in AGENT_CASES:
         if filter_regex and not re.search(filter_regex, case.name):
             continue
-        print(f"{case.name:<10} ", end="")
+        print(f"{case.name:<10} ", end="", flush=True)
         checked += 1
 
         ansi = out / f"{case.name}.ansi"

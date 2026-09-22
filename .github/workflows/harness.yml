@@ -40,6 +40,11 @@ jobs:
           neovim: true
           version: stable
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
       - name: the tools the picker looks for
         run: |
           sudo apt-get update
@@ -77,28 +82,28 @@ jobs:
           nvim --headless -c 'lua local p = require("mason-registry").get_package("lua-language-server") p:install() vim.wait(600000, function() return p:is_installed() end, 1000)' +qa
           nvim --headless -c 'lua print("lua_ls: " .. tostring(vim.fn.exepath("lua-language-server")))' +qa
 
-      - run: tools/nvim-harness/make-fixture.sh --force
+      - run: python3 tools/nvim-harness/harness.py fixture --force
 
-      - run: tools/nvim-harness/check-syntax.sh
+      - run: python3 tools/nvim-harness/harness.py syntax
 
       - run: python3 tools/nvim-harness/duplicate-keys.py .worktrees/nvim-lazyvim/lua
 
       - run: python3 tools/nvim-harness/rung-flags-match.py
 
-      - run: tools/nvim-harness/check-key-names.sh
+      - run: python3 tools/nvim-harness/harness.py key-names
 
       - name: the keys that only exist inside a picker
-        run: tools/nvim-harness/check-picker-keys.sh
+        run: python3 tools/nvim-harness/harness.py picker-keys
 
       # The probes are the only thing that runs this configuration's modules
       # against a project rather than compiling them. One of them read a
       # function as a table for weeks: the file compiled, the probe died on
       # the line, and the gate printed the report from an earlier run.
       - name: the keys the capability list claims
-        run: tools/nvim-harness/check-capability-keys.sh
+        run: python3 tools/nvim-harness/harness.py capability-keys
 
       - name: what loads before you ask for it
-        run: tools/nvim-harness/check-startup-plugins.sh
+        run: python3 tools/nvim-harness/harness.py startup-plugins
 
       # The baseline is a stock LazyVim, committed under trials/, so this
       # needs its plugins installed as well as the configuration's. It is the
@@ -112,13 +117,13 @@ jobs:
         run: |
           nvim --headless "+Lazy! restore" +qa
       - name: the collision check
-        run: tools/nvim-harness/check-keymaps.sh
+        run: python3 tools/nvim-harness/harness.py keymaps
 
       - name: both ways into a project ask about trust
-        run: tools/nvim-harness/check-startup-paths.sh
+        run: python3 tools/nvim-harness/harness.py startup-paths
 
       - name: one press closes what is open
-        run: tools/nvim-harness/check-dismiss.sh
+        run: python3 tools/nvim-harness/harness.py dismiss
 
       - name: the probes, against the fixture
         env:
@@ -127,7 +132,7 @@ jobs:
         # -s exercises lsp-parity.lua: it opens a file containing the symbol,
         # waits for lua_ls to attach, and asks it every request the fixture's
         # own workflow makes. Never passed here before, so this never ran in CI.
-        run: tools/nvim-harness/run-probes.sh -p tools/nvim-harness/fixture -s 'M.add'
+        run: python3 tools/nvim-harness/harness.py probes -p tools/nvim-harness/fixture -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim -s 'M.add'
 
       # The runner's node decides whether a .ts file runs at all: below 22.6
       # nothing strips the types, the configuration starts main.ts under a node
@@ -163,14 +168,14 @@ jobs:
           # skipped itself while the run stayed green.
           NVIM_APPNAME: nvim-lazyvim
         run: |
-          tools/nvim-harness/make-debug-fixtures.sh
+          python3 tools/nvim-harness/harness.py debug-fixtures
           test -f tools/nvim-harness/debug-fixtures/tsx/index.js
 
       - name: every debugger stops where it is told to
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/check-debuggers.sh -o "${{ runner.temp }}/nvim-debuggers"
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --tmux -o "${{ runner.temp }}/nvim-debuggers"
 
       # The frame a debugger failed on is the only evidence of why: which
       # configuration ran, what the adapter said, whether anything started.
@@ -186,7 +191,7 @@ jobs:
         env:
           NVIM_APPNAME: nvim-lazyvim
         run: |
-          tools/nvim-harness/feature-tour.sh \
+          python3 tools/nvim-harness/harness.py tour \
             -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim \
             -o "${{ runner.temp }}/feature-tour"
 
@@ -202,7 +207,7 @@ jobs:
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/screen-test.sh -l
+        run: python3 tools/nvim-harness/harness.py screens -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim -l
 
       - if: failure()
         uses: actions/upload-artifact@v4
@@ -250,6 +255,11 @@ jobs:
         with:
           node-version: 22
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
       - run: brew install tmux ripgrep fd
 
       - name: install plugins at the pinned commits
@@ -275,14 +285,14 @@ jobs:
         env:
           NVIM_APPNAME: nvim-lazyvim
         run: |
-          tools/nvim-harness/make-debug-fixtures.sh
+          python3 tools/nvim-harness/harness.py debug-fixtures
           test -f tools/nvim-harness/debug-fixtures/tsx/index.js
 
       - name: every debugger stops where it is told to
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/check-debuggers.sh -o "${{ runner.temp }}/nvim-debuggers"
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --tmux -o "${{ runner.temp }}/nvim-debuggers"
 
       # always(), because the debugger step reports rather than fails while
       # the browser case is open: on failure() this never ran and the trace it
@@ -290,13 +300,13 @@ jobs:
       # The screens that need no language server, on the other Unix. They were
       # captured on Linux and all eleven match here, so the same committed
       # frames hold both platforms to the same drawing.
-      - run: tools/nvim-harness/make-fixture.sh --force
+      - run: python3 tools/nvim-harness/harness.py fixture --force
 
       - name: the screens, on macOS
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
           NVIM_APPNAME: nvim-lazyvim
-        run: tools/nvim-harness/screen-test.sh
+        run: python3 tools/nvim-harness/harness.py screens -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim
 
       - if: always()
         uses: actions/upload-artifact@v4
@@ -336,6 +346,11 @@ jobs:
         with:
           node-version: 22
 
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
       - name: install plugins at the pinned commits
         env:
           XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
@@ -363,7 +378,7 @@ jobs:
         env:
           NVIM_APPNAME: nvim-lazyvim
         run: |
-          tools/nvim-harness/make-debug-fixtures.sh
+          python3 tools/nvim-harness/harness.py debug-fixtures
           test -f tools/nvim-harness/debug-fixtures/tsx/index.js
 
       # Started by hand, with no editor in the picture: if node cannot get that
@@ -402,4 +417,4 @@ jobs:
         # exactly the kind of thing that is claimed and not checked. And TSX in
         # a browser, which Windows had no way to check at all until the
         # headless path learned to serve a page and start one.
-        run: tools/nvim-harness/check-debuggers-headless.sh -f '^(python|typescript|tsx|rust)$'
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --headless -f '^(python|typescript|tsx|rust)$'

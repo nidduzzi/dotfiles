@@ -151,9 +151,8 @@ class NvimDriver:
         allowed = self._within_harness() or self.force_trust
 
         if allowed:
-            rtp = self.config_dir or (Path.home() / ".config" / (self.appname or "nvim"))
-            if self.config_dir:
-                rtp = f"{self.config_dir}/{self.appname or ''}"
+            config_root = self.config_dir or (Path.home() / ".config")
+            rtp = f"{config_root}/{self.appname or 'nvim'}"
             result = subprocess.run(
                 ["nvim", "--headless", "-u", "NONE",
                  "--cmd", f"set runtimepath+={rtp}",

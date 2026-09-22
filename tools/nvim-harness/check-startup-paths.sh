@@ -1,11 +1,8 @@
 #!/usr/bin/env bash
-# The trust question appears on both ways into a project.
-#
-# There are two, and they are not the same startup: opening the editor and
-# then a file, and naming the file on the command line. LazyVim loads its
-# autocmds eagerly when a file is named and lazily when one is not, so a
-# handler can exist on one path and be missing on the other --- which is how
-# the first two versions of this prompt came to do nothing at all, silently.
+# The trust prompt has to appear on both ways into a project: naming a file on
+# the command line (autocmds load eagerly) and opening one from the picker
+# after startup (they load lazily) -- a handler can exist on one path and not
+# the other.
 #
 # Usage:
 #   check-startup-paths.sh [-c CONFIG_DIR] [-n APPNAME]
@@ -23,8 +20,6 @@ while getopts "c:n:" opt; do
   esac
 done
 
-# A repository of its own, so the answer does not depend on what this machine
-# has been told about the fixture.
 PROJECT="$(mktemp -d)"
 trap 'rm -rf "$PROJECT"' EXIT
 
@@ -44,22 +39,18 @@ asks() {
 
 status=0
 
-# Named on the command line: the file is read during startup.
 if [[ "$(asks -a src/lib.lua 'wait:5:ex:echo ""')" -eq 0 ]]; then
   echo "  a file named on the command line was not asked about"
   status=1
 fi
 
-# Opened afterwards, from the picker, which is the other way in.
 if [[ "$(asks ' ff' 'lib.lua' 'wait:5:Enter')" -eq 0 ]]; then
   echo "  a file opened from the picker was not asked about"
   status=1
 fi
 
-# And nothing at all once the project is trusted.
-# NVIM_APPNAME and XDG_CONFIG_HOME matter here: the trust store lives under
-# stdpath("state"), which is per app name. Without them this writes to a
-# different store and the editor under test never sees it.
+# NVIM_APPNAME/XDG_CONFIG_HOME matter: the trust store lives under
+# stdpath("state"), which is per app name.
 env NVIM_APPNAME="$APPNAME" XDG_CONFIG_HOME="$CONFIG_DIR" \
   nvim --headless -u NONE \
   --cmd "set runtimepath+=$CONFIG_DIR/$APPNAME" \

@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
-# Ask a real agent, in a real editor, and check what came back.
-#
-# agent-canary.sh proves the agent cannot write. This proves it answers: the
-# three flows a person actually presses are driven against the configured
-# backend and the frame is matched on what each one puts on the screen -- a
-# findings list carrying a line number, a panel with a title and a body.
-#
-# Not a CI gate: it spends real requests on a hosted model. It is the check to
-# run after touching lua/util/agent, beside the canary.
+# Ask a real agent, in a real editor, and check what came back. Not a CI
+# gate: it spends real requests on a hosted model. Run after touching
+# lua/util/agent, beside agent-canary.sh.
 #
 # Usage:
 #   check-agent.sh [-c CONFIG] [-n APPNAME] [-d PROJECT] [-f REGEX] [-o OUT_DIR]
@@ -34,10 +28,7 @@ done
 mkdir -p "$OUT_DIR"
 
 # name | wait | expect | keys...
-#
-# Every expect is something only an answer produces. A title alone would be
-# drawn by a window that opened and stayed empty, which is exactly how a failed
-# request looked before there was anything checking.
+# expect is something only a real answer produces, not the window opening.
 CASES=(
   "review|60|[0-9]  [A-Z][a-z]| ff|buggy.lua|Enter|:10|Enter| ar"
   "explain|50|a-q closes| ff|buggy.lua|Enter|:17|Enter| ax"

@@ -1,36 +1,19 @@
 #!/usr/bin/env bash
 # Record the agent tour: asking a coding agent without letting it write.
+# Recorded against Hermes on a local model by default (free to re-record,
+# and the weaker backend: no schema flag, answers come back as prose).
 #
-# Recorded against Hermes pointed at a local model rather than Claude, for two
-# reasons. It costs nothing, so the tour can be re-recorded as often as it
-# needs to be. And it is the weaker of the two backends — no schema flag, so
-# the findings come back as prose to be parsed, and a minute per answer rather
-# than a couple of seconds — so a tour that holds up here holds up on the other
-# one.
+# AGENT_PAUSE caps the wait for an answer rather than padding it; only the
+# keys that start a request use it (film.sh's `slow:` prefix).
 #
-# AGENT_PAUSE is a cap rather than a pause: film.sh waits for the answer and
-# gives up after it. It is generous because a whole-file review on a local 35B
-# ran past 150 seconds, and a cap that expires captures the spinner — which
-# reads as a feature that does nothing rather than one that is still thinking.
-#
-# The long wait applies only to the keys that start a request. A 35B on a
-# local card answers a review in about a minute, and a shorter pause captures
-# the spinner rather than the answer — but a pause that long on every key made
-# a nine-film tour spend two hours to record the eight frames that needed it.
-# film.sh's `slow:` prefix marks those. Claude returns in two or three seconds
-# and needs neither.
-#
-# The endpoint and key come from the environment, never from this file:
+# The endpoint and key come from the environment:
 #   CUSTOM_BASE_URL  CUSTOM_API_KEY  HERMES_ALLOW_PRIVATE_URLS
 #   HERMES_INFERENCE_PROVIDER  HERMES_INFERENCE_MODEL
 #
 # Usage:
 #   record-agent-tour.sh -p PROJECT [-o OUTDIR] [FILM ...]
 #
-# Naming films records only those, which is how a single one gets re-recorded
-# after a fix without paying for the other eight. It is also how the tour gets
-# recorded at all on a busy machine: each film is minutes long, and a run that
-# is killed halfway leaves nothing.
+# Naming films records only those.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -57,10 +40,6 @@ shift $((OPTIND - 1))
 [[ -n "$PROJECT" ]] || { echo "A project to record against is required: -p DIR" >&2; exit 2; }
 [[ -d "$PROJECT" ]] || { echo "No such project: $PROJECT" >&2; exit 2; }
 
-# Hermes answers from a local model, which costs nothing and needs an endpoint.
-# Claude answers from a hosted one, which costs money and needs none. The tour
-# reads the same either way; what changes is who pays and how long the waits
-# have to be.
 if [[ "$BACKEND" == "hermes" && -z "${CUSTOM_BASE_URL:-}" ]]; then
   echo "CUSTOM_BASE_URL is not set, so there is no model to ask." >&2
   echo "Source the environment that points Hermes at one first, or -b claude." >&2
@@ -69,22 +48,13 @@ fi
 
 mkdir -p "$OUT"
 
-# Switch the editor to the backend being recorded, the way anyone would: the
-# key that opens the agent picker, the name typed into it, Enter. An earlier
-# version set the Lua field directly, which recorded a line nobody types and
-# taught the harness's shortcut rather than the editor's key.
-#
-# Every film starts a fresh editor, so every film has to do it. That is not
-# padding: the switch is a session setting, and a tour that hid it would leave
-# "which agent is answering this" unanswered in every frame.
+# Switch the editor to the backend, the way anyone would: the key, the name,
+# Enter. Every film does this fresh, since it is a session setting.
 SWITCH=('Space' 'au' "$BACKEND" 'Enter')
 
-# Scene setting, in keys. <leader>ff finds the file, / finds the function, 8j
-# puts the cursor inside it.
 OPEN=('Space' 'ff' 'core/utils/params' 'Enter')
 AT_FUNCTION=('/' 'def int_from_request' 'Enter' '8j')
 
-# Names given on the command line, if any. Empty means all of them.
 WANTED=("$@")
 
 wanted() {
@@ -136,12 +106,9 @@ film 05-lookup "Looking something up" \
   "The rung that makes you faster rather than the one that makes you think. Remembering an argument order was never the skill." \
   "${OPEN[@]}" "${SWITCH[@]}" 'Space' 'al' 'python bisect insort' 'slow:Enter'
 
-# A real error, not the absence of one. Recorded on stats/models.py, where
-# ruff reports `Cannot use \`type\` alias statement on Python 3.10` — a genuine
-# version mismatch in this checkout, and the kind of message whose cause is not
-# on the line it points at. The film used to run on a clean function, so the
-# panel came back titled "What this does": it demonstrated the other half of
-# this key and called it the error half.
+# Recorded on a real ruff error (a genuine version mismatch in this checkout)
+# rather than a clean function, so the panel demonstrates the explain-an-error
+# half of this key, not the explain-this-code half.
 film 06-explain "What this error means" \
   "With a diagnostic under the cursor it explains that instead, because that is almost always the question. <leader>cd puts the error on screen first, so what the agent was given is visible before what it answered. The diagnostic goes into the prompt with the surrounding lines — the agent runs with no tools and reads nothing itself, so everything it sees is assembled here." \
   'Space' 'ff' 'stats/models' 'Enter' '19G' "${SWITCH[@]}" 'Space' 'cd' 'Space' 'slow:ax'

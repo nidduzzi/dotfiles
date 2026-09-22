@@ -1,9 +1,6 @@
 #!/usr/bin/env bash
-# What loads at startup, against what is supposed to.
-#
-# A performance check that does not depend on how fast the machine is: the
-# question is not "how many milliseconds" but "which plugins did something ask
-# for before you did".
+# What loads at startup, against what is supposed to: not how fast, but
+# which plugins loaded before you asked for them.
 #
 # Usage:
 #   check-startup-plugins.sh [-c CONFIG_DIR] [-n APPNAME] [-u]
@@ -39,10 +36,8 @@ PROBE_OUT="$REPORT" "$HERE/nvim-drive.sh" \
 
 [[ -s "$REPORT" ]] || { echo "the editor reported no plugins at all" >&2; exit 1; }
 
-# LC_ALL=C, because sort's order depends on the locale: this machine ignores
-# case and puts LazyVim between lazy.nvim and lualine.nvim, while a CI runner
-# in the C locale puts every capital first. Same set, different file, and the
-# gate failed on a difference that was not about plugins at all.
+# LC_ALL=C: sort's order depends on locale, and a CI runner's C locale sorts
+# capitals first while this machine ignores case.
 tail -n +3 "$REPORT" | sed 's/^  //' | LC_ALL=C sort -u > "$FOUND"
 
 if [[ "$UPDATE" -eq 1 ]]; then

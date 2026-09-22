@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# Every key the capability list claims is a key something answers to.
-#
-# lua/util/capabilities.lua is kept by hand on purpose — generating it would
-# list every mapping in the editor, which is the haystack it exists to avoid.
-# A hand-kept list drifts, and this is the half a machine can check: the first
-# key of an entry is a global or buffer-local mapping, and either it is bound
-# or the entry describes a feature that has moved.
+# Every key lua/util/capabilities.lua claims is a key something answers to.
+# The list is hand-kept on purpose; this checks the half a machine can: the
+# first key of an entry is bound, globally or buffer-locally.
 #
 # Usage:
 #   check-capability-keys.sh [-c CONFIG_DIR] [-n APPNAME]

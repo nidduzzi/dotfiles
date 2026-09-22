@@ -11,9 +11,8 @@
 # Per-test directives, as `# name: value` lines in the .keys file:
 #   dir, size, needs, attempts, pause
 #
-# A screen is asserted to eventually match, not to match on the first try, the
-# way Neovim's own Screen:expect retries until its timeout. Diagnostics and
-# hover arrive when the language server answers, which is not on a schedule.
+# A screen is asserted to eventually match, not on the first try -- a
+# language server answers when it answers.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,10 +20,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_ROOT="${NVIM_TOUR_CONFIG:-$HERE/../../.worktrees/cfg}"
 APPNAME="${NVIM_TOUR_APPNAME:-nvim-lazyvim}"
 TESTS_DIR="$CONFIG_ROOT/$APPNAME/tests/screen"
-# Python rather than sed: \b, \| and \{n,\} are GNU extensions and macOS
-# ships the BSD one, where the branch was never replaced and the statusline
-# never collapsed -- so every screen differed for reasons that had nothing to
-# do with the editor.
+# Python, not sed: \b, \| and \{n,\} are GNU extensions; macOS ships BSD sed.
 NORMALISE="$HERE/screen-normalise.py"
 UPDATE=0
 WITH_LSP=0
@@ -45,9 +41,8 @@ shift $((OPTIND - 1))
 
 CONFIG_ROOT="$(cd "$CONFIG_ROOT" && pwd)"
 
-# A panel that prints a path wraps where the path ends, and the path is a
-# different length on every machine. Reached through a fixed-length link, it
-# wraps in the same place everywhere.
+# A fixed-length symlink, so a path that wraps a printed line wraps the same
+# place on every machine regardless of how long the real path is.
 STABLE_CONFIG=/tmp/nvim-screen-cfg
 rm -f "$STABLE_CONFIG"
 ln -sfn "$CONFIG_ROOT" "$STABLE_CONFIG"
@@ -85,9 +80,8 @@ capture() {
   WORKDIR_REAL="$(cd "$workdir" && pwd)"
   CONFIG_REAL="$(cd "$CONFIG_ROOT" && pwd)"
   CONFIG_GIVEN="$CONFIG_ROOT"
-  # Built by hand rather than with a pattern substitution: the escaped tilde
-  # in the replacement survives as a backslash on bash 3.2, which is what
-  # macOS ships, and the home-shortened path then matched nothing at all.
+  # Built by hand: an escaped tilde in a pattern-substitution replacement
+  # survives as a literal backslash on bash 3.2 (macOS).
   WORKDIR_TILDE="$WORKDIR_REAL"
   CONFIG_TILDE="$CONFIG_GIVEN"
   [[ "$WORKDIR_REAL" == "$HOME"/* ]] && WORKDIR_TILDE="~${WORKDIR_REAL#"$HOME"}"
@@ -96,9 +90,7 @@ capture() {
   local pause
   pause="$(read_directive "$keys_file" pause 2)"
 
-  # Read line by line rather than with mapfile, which is a bash 4 builtin and
-  # macOS ships bash 3.2: there the script died on this line with
-  # "mapfile: command not found" and no screen was ever compared.
+  # while read, not mapfile: mapfile is bash-4-only and macOS ships bash 3.2.
   local batches=()
   local batch
   while IFS= read -r batch; do

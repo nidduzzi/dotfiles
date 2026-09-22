@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
-# Record the tour: one film per feature, each a path rather than a destination.
-#
-# The contact sheet showed what every feature looks like once you are already
-# there. This shows how you get there, which is the part someone learning the
-# editor does not have. Each film is a handful of frames with the key that
-# produced each one.
-#
-# Recorded against a real repository, not the fixture: ranking, LSP and the
-# file tree all behave differently over five thousand files than over six, and
-# a tour of a toy project teaches the toy.
+# Record the tour: one film per feature, each a path rather than a
+# destination. Recorded against a real repository, not the fixture: ranking,
+# LSP and the file tree behave differently at scale.
 #
 # Usage:
 #   record-tour.sh [-o OUTDIR] [-p PROJECT]
@@ -36,12 +29,6 @@ done
 
 mkdir -p "$OUT"
 
-# One film. The name orders it in the tour; the title and blurb caption it.
-#
-# Scene-setting uses real keys, not `ex:` commands. A tour whose frames show
-# `:edit lua/util/recall.lua` teaches an Ex command nobody types, and the
-# harness's convenience has no business being in the teaching material. `ex:`
-# is still there for the rare case a key cannot express the setup.
 film() {
   local name="$1" title="$2" blurb="$3"
   shift 3
@@ -52,10 +39,8 @@ film() {
   printf '%s\n' "$blurb" > "$OUT/$name/blurb.txt"
 }
 
-# A film that needs a different project. The language server film is the only
-# one so far: label-studio is Python, ruff is the only server it provides, and
-# ruff answers neither hover nor definition. Demonstrating K there would
-# demonstrate nothing.
+# A film against a different project (label-studio: the only server it
+# provides is ruff, which answers neither hover nor definition).
 film_in() {
   local project="$1" name="$2" title="$3" blurb="$4"
   shift 4
@@ -108,9 +93,8 @@ film 10-yank "Everything you yanked" \
   "Not just the last thing. Enter loads the register; p pastes it where you meant." \
   'Space' 'ff' 'tasks/api' 'Enter' 'yy' 'jj' 'yy' 'Space' 'sy'
 
-# Slower than the rest: lua_ls indexes the workspace before it can say what
-# vim.fs.find is, and asked too early it answers "unknown" — which looks like
-# a broken hover rather than an impatient one.
+# lua_ls indexes the workspace before it can answer hover, so this needs a
+# longer settle than the rest or it answers "unknown".
 FILM_PAUSE=6 \
 film_in "${LUA_PROJECT:-$HOME/dotfiles/.worktrees/nvim-lazyvim}" \
   11-lsp "Asking the language server" \
@@ -125,7 +109,6 @@ film 13-health "What this project provides" \
   "Only lua_ls installs itself. Everything else is used if the project or PATH provides it, and named if it does not." \
   ':checkhealth dotfiles' 'Enter'
 
-# Getting into a popup, which is the half nobody documents.
 FILM_PAUSE=5 \
 film_in "${LUA_PROJECT:-$HOME/dotfiles/.worktrees/nvim-lazyvim}" \
   14-popup "Getting inside a popup" \

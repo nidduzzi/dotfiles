@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
-# Build the small programs the debugger films and probes run against.
-#
-# One per language, each with a function taking two arguments and a local, so a
-# breakpoint on that line has something to show in the variables pane.
+# Build the small programs the debugger films and probes run against: one per
+# language, each with a function taking two arguments and a local.
 #
 # Usage:
 #   make-debug-fixtures.sh [DIR]      default: debug-fixtures beside this script
@@ -106,8 +104,8 @@ else
   skipped+=("rust: no cargo")
 fi
 
-# Python. The virtualenv is the point: the debugger runs the project's own
-# interpreter, so debugpy has to be in it.
+# Python: the virtualenv is the point, since debugpy has to live in the same
+# interpreter the project runs.
 mkdir -p "$DIR/python"
 cat > "$DIR/python/main.py" <<'EOF'
 def add(a, b):
@@ -172,8 +170,7 @@ else
   skipped+=("typescript: no node")
 fi
 
-# Julia. DebugAdapter is a dependency of the project, not a tool the editor
-# installs, so it goes in the project environment.
+# Julia. DebugAdapter is a project dependency, so it goes in the project env.
 mkdir -p "$DIR/julia"
 cat > "$DIR/julia/main.jl" <<'EOF'
 function add(a, b)
@@ -191,11 +188,9 @@ end
 
 main()
 EOF
-# A mise shim resolves the version from the directory it runs in, so a shim on
-# PATH is not the same as a usable interpreter: outside a project that names a
-# version it exits with "No version is set for shim: julia". The editor asks
-# vim.fn.executable, which says yes to the shim either way, and the debug
-# session then failed with nothing on screen to say why.
+# A mise shim resolves its version from cwd, so outside a project that names
+# one it exits "No version is set for shim: julia" -- while
+# vim.fn.executable says yes to the shim regardless.
 if have mise && mise ls julia 2>/dev/null | grep -q '[0-9]'; then
   julia_version="$(mise ls julia 2>/dev/null | awk '/[0-9]/ { print $2; exit }')"
   printf '[tools]\njulia = "%s"\n' "$julia_version" > "$DIR/julia/mise.toml"
@@ -208,11 +203,9 @@ else
   skipped+=("julia: no julia, or DebugAdapter would not install")
 fi
 
-# TSX in a browser, which is how TSX is really debugged: the browser runs the
-# compiled JavaScript and the source map is what puts the breakpoint back on
-# the line you wrote. The compiler is the one vtsls ships, so nothing is
-# installed for this; the JSX factory is a local function so no framework is
-# either.
+# TSX in a browser: the browser runs the compiled JS and the source map puts
+# the breakpoint back on the line you wrote. Compiled with the vtsls compiler,
+# since nothing else is installed for this.
 mkdir -p "$DIR/tsx"
 cat > "$DIR/tsx/index.tsx" <<'EOF'
 function h(tag: string, props: Record<string, string> | null, ...children: string[]): HTMLElement {
@@ -235,9 +228,8 @@ function App(): HTMLElement {
 
 document.body.append(App());
 
-// Again every two seconds, so a debugger that attaches after the page loaded
-// still has something to stop on. A page that only runs its code once can be
-// debugged by reloading it, which a breakpoint check cannot drive.
+// Again every two seconds, so a debugger that attaches after load still has
+// something to stop on.
 setInterval(() => document.body.replaceChildren(App()), 2000);
 EOF
 cat > "$DIR/tsx/index.html" <<'EOF'
@@ -256,13 +248,8 @@ cat > "$DIR/tsx/package.json" <<'EOF'
   }
 }
 EOF
-# find exits 1 when the directory is not there, and an assignment carries that
-# status: on a machine without vtsls installed this ended the whole script
-# under set -e, with nothing built and nothing said.
-# Where the editor keeps what mason installed is the editor's decision, and on
-# Windows it is nowhere near ~/.local/share -- so the compiler was declared
-# missing and the TSX fixture went unbuilt on the one platform that has no
-# other way to check a browser.
+# `|| true`: find exits 1 with nothing to find, and that status would
+# otherwise end the whole script under set -e before anything is built.
 data_dir="$(command -v nvim >/dev/null &&
   nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data')) io.stdout:flush()" +qa 2>/dev/null || true)"
 data_dir="${data_dir:-${XDG_DATA_HOME:-$HOME/.local/share}/${NVIM_APPNAME:-nvim}}"

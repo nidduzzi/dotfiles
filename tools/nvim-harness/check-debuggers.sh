@@ -1,11 +1,7 @@
 #!/usr/bin/env bash
-# Run each language's debugger to a breakpoint and check what it stopped on.
-#
-# The tour captures the debugger UI, and a breakpoint sign in the margin is all
-# it asserts: the same frame is drawn when the adapter never starts. This drives
-# the whole way -- open the file, set the breakpoint, start the session, pick
-# the first configuration -- and matches on the variable values the adapter
-# reported, which nothing but a live session can put on the screen.
+# Run each language's debugger to a breakpoint and check what it stopped on:
+# open the file, set the breakpoint, start the session, pick the first
+# configuration, and match the variable values only a live session prints.
 #
 # Usage:
 #   check-debuggers.sh [-c CONFIG] [-n APPNAME] [-f REGEX] [-o OUT_DIR]
@@ -29,21 +25,8 @@ done
 
 mkdir -p "$OUT_DIR"
 
-# language | file | breakpoint line | the program that must be there |
-# seconds to wait for the session | which configuration to pick | expect
-#
-# `expect` is matched against the stopped frame. Every one of them names a
-# value the adapter computed -- the arguments the call was made with, or the
-# stack it stopped in -- so a frame drawn without a session cannot match.
-#
-# The wait is per language because they do not start alike: js-debug brings up
-# a server and a bootloader before the program runs, and on a cold runner that
-# took longer than the frame was captured after.
-#
-# The configuration is picked by position in the list the editor offers. 1 runs
-# the file; a .tsx file is never run, so 2 opens a browser on the dev server,
-# which is how a component is really debugged -- the browser runs compiled
-# JavaScript and the source map puts the stop back on the line you wrote.
+# language | file | breakpoint line | required program | settle secs |
+# configuration to pick (position in the list the editor offers) | expect
 CASES=(
   "python|main.py|3|python3|20|1|b int = 1"
   "typescript|main.ts|2|node|40|1|b number = 1"
@@ -54,14 +37,9 @@ CASES=(
   "julia|main.jl|2|julia|30|1|add main.jl:2"
 )
 
-# The port the TSX fixture's dev script names, which is where the editor's
-# browser configuration looks: both read it from that one package.json.
 TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
 server_pid=""
 
-# The status is carried through by hand: an EXIT trap whose last command
-# succeeds hands that success to the caller, and this one turned a script that
-# died on its first case into a step CI called green.
 stop_server() {
   local status=$?
   if [[ -n "$server_pid" ]]; then
@@ -72,12 +50,9 @@ stop_server() {
 }
 trap stop_server EXIT
 
-# Three things the harness changes about a browser configuration, none of which
-# belongs in the configuration itself: a browser started here has no screen to
-# draw on; the address is pinned to the one the fixture's server is listening
-# on, because on macOS `localhost` resolves to ::1 first where nothing answers;
-# and it gets a profile of its own, because a runner's default profile is not
-# a place a browser can always start from.
+# What a browser configuration needs that does not belong in the config
+# itself: headless flags, 127.0.0.1 (macOS resolves localhost to ::1 first),
+# and its own profile.
 HEADLESS="ex:lua for _, configuration in ipairs(require('dap').configurations[vim.bo.filetype] or {}) do if configuration.type == 'pwa-chrome' then configuration.runtimeArgs = { '--headless=new', '--no-sandbox', '--disable-gpu' } configuration.userDataDir = true configuration.trace = { logFile = 'TRACE_FILE' } if configuration.url then configuration.url = configuration.url:gsub('localhost', '127.0.0.1') end end end vim.fn.writefile({ 'applied' }, 'MARKER_FILE')"
 
 failures=()
@@ -91,26 +66,20 @@ for case in "${CASES[@]}"; do
 
   printf '%-12s ' "$lang"
 
-  # Mason installs the adapters into the editor's own data directory, which is
-  # not on PATH: looking only there said codelldb was missing on a machine
-  # where three languages debugged fine.
+  # Mason installs into the editor's own data directory, which is not on PATH.
   if ! command -v "$needs" >/dev/null &&
     [[ ! -x "${XDG_DATA_HOME:-$HOME/.local/share}/$APPNAME/mason/bin/$needs" ]]; then
     echo "skipped, no $needs on PATH or in mason"
     continue
   fi
 
-  # The browser runs compiled JavaScript, and make-debug-fixtures.sh compiles
-  # it only where a TypeScript compiler was found. Without it the page loads
-  # nothing, the breakpoint stays provisional, and the gate would report that
-  # as a debugger that did not stop.
   if [[ "$lang" == tsx && ! -f "$HERE/debug-fixtures/tsx/index.js" ]]; then
     echo "skipped, the fixture was never compiled"
     continue
   fi
 
-  # Asked of the editor rather than guessed at here, so the gate and the
-  # configuration are looking for the same browser in the same places.
+  # Asked of the editor rather than guessed at here, so both look in the
+  # same places for a browser.
   browser=""
   if [[ "$lang" == tsx ]]; then
     browser="$(
@@ -127,35 +96,24 @@ for case in "${CASES[@]}"; do
   ansi="$OUT_DIR/$lang.ansi"
   drawn="$OUT_DIR/$lang.drawn"
 
-  # The page a browser configuration opens has to be served by something, and
-  # the fixture's own dev script is a plain static server.
-  # Written the long way because macOS ships bash 3.2, where an empty array
-  # under `set -u` is an unbound variable rather than nothing at all.
+  # Written the long way: an empty array under `set -u` is unbound on
+  # bash 3.2 (macOS).
   prelude=()
   if [[ "$lang" == tsx ]]; then
     stop_server
-    # Served by node rather than python: this case already requires node, and
-    # on the macOS runner python's http.server bound nothing, printed nothing,
-    # and left curl timing out against a port nobody was listening on.
+    # node, not python3: python's http.server bound nothing on the macOS
+    # runner and left curl timing out.
     (cd "$HERE/debug-fixtures/tsx" && exec node "$HERE/serve-fixture.js" "$TSX_PORT") \
       >"$OUT_DIR/tsx.server" 2>&1 &
     server_pid=$!
-    # js-debug's own log, which is the only place a browser that never
-    # connected explains itself. Written into the command rather than passed
-    # in the environment: the editor is started by tmux, which does not
-    # inherit this shell's, so the trace was never asked for at all.
     trace_file="$OUT_DIR/tsx.jsdebug.log"
     marker="$OUT_DIR/tsx.prelude"
     rm -f "$trace_file" "$marker"
     prelude_command="${HEADLESS/TRACE_FILE/$trace_file}"
     prelude=("${prelude_command/MARKER_FILE/$marker}")
 
-    # Both halves said out loud, because a page that does not load and a
-    # browser that does not start draw the same empty frame.
     served=""
     for _ in 1 2 3 4 5 6 7 8 9 10; do
-      # `|| true` because a refused connection is the normal answer while the
-      # server is still starting, and `set -e` took the whole gate out on it.
       served="$(curl -s --max-time 2 "http://127.0.0.1:$TSX_PORT/index.js" 2>/dev/null | head -c 20 || true)"
       [[ -n "$served" ]] && break
       sleep 1
@@ -171,10 +129,6 @@ for case in "${CASES[@]}"; do
       if [[ -s "$OUT_DIR/tsx.server" ]]; then
         sed 's/^/           /' "$OUT_DIR/tsx.server"
       else
-        # Nothing in the background server's output is normal -- it prints
-        # only when asked for something. Starting one in the foreground is
-        # what shows the refusal: a port in use, a missing module, a python
-        # that is not there.
         echo "           nothing at all, from $(command -v python3 || echo 'no python3')"
         echo "           starting one in the foreground:"
         (cd "$HERE/debug-fixtures/tsx" &&
@@ -186,9 +140,7 @@ for case in "${CASES[@]}"; do
     printf '(browser: %s) ' "$(basename "$browser")"
   fi
 
-  # Down, not j: the picker opens with its filter focused, so j is a letter
-  # typed into the filter -- which matched nothing, selected nothing, and left
-  # no session and no log to say why.
+  # Down, not j: the picker opens with its filter focused, so j types into it.
   picks=()
   for ((pick = 1; pick < choice; pick++)); do
     picks+=(Down)
@@ -212,21 +164,14 @@ for case in "${CASES[@]}"; do
     echo "NEVER STOPPED: nothing matching '$expect', frame in $drawn"
 
     # A real browser under contended CI hardware occasionally drops the DAP
-    # session after a correct handshake -- entry 57 in DECISIONS.md traced it
-    # on Windows; this same signature (breakpoint verified, then the browser
-    # process exits with nothing further) has since shown up here too, on
-    # macOS. Reported rather than gating the job, so the three languages that
-    # do not depend on a second live process still enforce.
+    # session after a correct handshake (DECISIONS.md 57, 68): reported
+    # rather than gating the job.
     if [[ "$lang" == tsx ]]; then
       flaky+=("$lang: no '$expect'")
     else
       failures+=("$lang: no '$expect'")
     fi
 
-    # A session that never starts leaves the breakpoint sign and nothing else.
-    # nvim-dap writes every exchange with the adapter to its log, and an
-    # adapter that died before speaking says so there. The notification that
-    # carried the same news had faded long before the frame was captured.
     log="${XDG_STATE_HOME:-$HOME/.local/state}/$APPNAME/dap.log"
     echo "           what the adapter said:"
     if [[ -s "$log" ]]; then
@@ -235,9 +180,6 @@ for case in "${CASES[@]}"; do
       echo "           nothing: $log is empty or missing"
     fi
 
-    # An empty log means nothing ever spoke to an adapter, which is a question
-    # about the configurations the editor offers rather than about the
-    # debugger. Ask it directly, without a terminal in the way.
     if [[ "$lang" == tsx && ! -f "$OUT_DIR/tsx.prelude" ]]; then
       echo "           the harness could not change the configuration: its Ex command never ran"
     fi
@@ -269,8 +211,6 @@ if [[ ${#failures[@]} -gt 0 ]]; then
   printf '  %s\n' "${failures[@]}"
   exit 1
 fi
-# A run where every language was skipped passes while measuring nothing, which
-# is the failure this whole harness exists to stop.
 if [[ "$checked" -eq 0 ]]; then
   echo "No debugger was checked: none of the adapters are installed." >&2
   exit 1

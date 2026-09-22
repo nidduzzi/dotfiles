@@ -1,15 +1,7 @@
 #!/usr/bin/env bash
-# The same debuggers, without a terminal to drive.
-#
-# check-debuggers.sh is the check worth having: it presses the keys a person
-# presses and reads the frame a person reads. It needs tmux, which Windows does
-# not have, so the adapters went unchecked on the platform most likely to break
-# them. This asks nvim-dap directly instead -- start this configuration, stop
-# on this line -- and runs anywhere Neovim does.
-#
-# What it gives up: the keymap, the picker, and the variables pane. What it
-# keeps: whether the adapter exists, starts, finds the program and stops where
-# it was told to.
+# The same debuggers, without a terminal to drive -- asks nvim-dap directly
+# (start this configuration, stop on this line), so it runs anywhere Neovim
+# does, including Windows where tmux is unavailable.
 #
 # Usage:
 #   check-debuggers-headless.sh [-c CONFIG] [-n APPNAME] [-f REGEX]
@@ -31,9 +23,8 @@ done
 
 CONFIG_ROOT="$(cd "$CONFIG_ROOT" && pwd)"
 
-# Git Bash hands out /d/a/… paths, and a native Windows Neovim cannot open
-# one: `luafile /d/a/…` is E484, which is a hit-enter prompt, which is a
-# headless editor that never exits. cygpath is what Git Bash ships for this.
+# Git Bash hands out /d/a/... paths; a native Windows Neovim can't open one
+# (E484, a hit-enter prompt a headless editor never exits from).
 to_editor_path() {
   if command -v cygpath >/dev/null; then
     cygpath -w "$1"
@@ -45,13 +36,7 @@ to_editor_path() {
 SCRIPT="$(to_editor_path "$HERE/debug-headless.lua")"
 CONFIG_FOR_EDITOR="$(to_editor_path "$CONFIG_ROOT")"
 
-# language | file | breakpoint line | the program that must be there |
-# seconds to wait for the session | expect
-#
-# The browser case is here too: serving a page and starting a browser is a few
-# lines rather than a terminal, and it is the one case Windows could not
-# otherwise check at all. It gets more time than the rest: a real browser
-# launching under CI load is the slowest thing any of these cases starts.
+# language | file | breakpoint line | required program | settle secs | expect
 CASES=(
   "python|main.py|3|python3|40|main.py:3"
   "typescript|main.ts|2|node|40|main.ts:2"
@@ -65,23 +50,15 @@ CASES=(
 OUT="${TMPDIR:-/tmp}/nvim-debuggers-headless"
 mkdir -p "$OUT"
 
-# The port the fixture's own dev script names, which is where the editor's
-# browser configuration looks: both read it from that one package.json.
 TSX_PORT="$(sed -n 's/.*--port \([0-9]*\).*/\1/p' "$HERE/debug-fixtures/tsx/package.json" 2>/dev/null | head -1)"
 server_pid=""
 
-# A server-type DAP adapter (julia, js-debug's pwa-chrome) is started by
-# nvim-dap detached, in its own process group, deliberately, so it can
-# survive a Neovim that crashes. That also means a graceful `qa!`/`cq!` here
-# never runs nvim-dap's own session-close cleanup at all -- that hook is
-# scoped to closing the DAP session, not to Neovim quitting, and nvim-dap
-# registers no VimLeave autocmd to close a still-running one first. Found
-# and fixed for the tmux-driven check-debuggers.sh in DECISIONS.md entry 67
-# (over 4GB, five Chrome trees, one from the day before); this script spawns
-# nvim directly rather than through tmux, so it needed its own sweep. Once,
-# at the very end, rather than per case: nothing this script starts is
-# reparented to init until the nvim that spawned it has fully exited, so
-# every case's leftovers -- if any -- are already there to find by then.
+# A server-type DAP adapter (julia, js-debug's pwa-chrome) is started
+# detached, in its own process group, so it survives Neovim quitting -- a
+# graceful qa!/cq! never runs nvim-dap's own session-close cleanup, which is
+# scoped to closing the session, not to Neovim exiting (DECISIONS.md 67, 68).
+# One sweep at the end, not per case: nothing is reparented to init until
+# the nvim that spawned it has fully exited.
 sweep_orphaned_adapters() {
   local pid ppid args roots=""
   while read -r pid ppid args; do
@@ -138,8 +115,7 @@ checked=0
 for case in "${CASES[@]}"; do
   IFS='|' read -r lang file line needs settle expect <<<"$case"
 
-  # The browser configuration is the second the editor offers for a .tsx file,
-  # because a .tsx file is never simply run.
+  # A .tsx file offers the browser configuration second; it is never run.
   choice=1
   [[ "$lang" == tsx ]] && choice=2
 
@@ -147,9 +123,7 @@ for case in "${CASES[@]}"; do
 
   printf '%-12s ' "$lang"
 
-  # Where mason keeps its programs is the editor's decision, and it is a
-  # different directory on Windows -- looking under ~/.local/share there found
-  # nothing and skipped every case.
+  # Mason's bin dir differs by platform, so it is asked of the editor.
   if [[ -z "${MASON_BIN:-}" ]]; then
     MASON_BIN="$(
       env ${APPNAME:+NVIM_APPNAME="$APPNAME"} XDG_CONFIG_HOME="$CONFIG_FOR_EDITOR" \
@@ -167,8 +141,6 @@ for case in "${CASES[@]}"; do
     continue
   fi
 
-  # The browser case brings its own page and its own browser, and skips when
-  # either is missing rather than blaming the debugger for it.
   browser_env=()
   if [[ "$lang" == tsx ]]; then
     if [[ ! -f "$HERE/debug-fixtures/tsx/index.js" ]]; then
@@ -208,13 +180,8 @@ for case in "${CASES[@]}"; do
 
   checked=$((checked + 1))
 
-  # No prompts, and nothing to type into one: a hit-enter prompt in a headless
-  # editor blocks the loop that would otherwise time this out, and the Windows
-  # job sat in one until CI gave up on the whole run.
-  #
   # The editor's own exit status decides, not the shape of what it printed:
-  # "stopped at main.py:3, expected main.py:99" starts the same way a pass
-  # does, and a check that reads only the first two words passes it.
+  # "stopped at main.py:3, expected main.py:99" starts the same as a pass.
   answered="$OUT/$lang.said"
   if (
     cd "$HERE/debug-fixtures/$lang" &&
@@ -225,21 +192,13 @@ for case in "${CASES[@]}"; do
         nvim --headless --cmd 'set nomore' --cmd 'set shortmess+=atToOF' \
           "$file" +"luafile $SCRIPT" >"$answered" 2>&1 </dev/null
   ); then
-    # -o, because a notice about a missing language server arrives without a
-    # newline and the answer ends up appended to it.
     echo "$(grep -oE 'stopped at [^ ,]+' "$answered" | head -1)"
   else
-    # grep exits 1 when none of these alternates match anywhere in the file,
-    # and under pipefail that status belongs to this assignment -- which
-    # would silently end the whole script right here, inside the branch that
-    # exists to explain a failure, on any answer that happens not to contain
-    # one of these four exact phrasings.
+    # `|| true`: grep exits 1 when none of these alternates match, which
+    # under pipefail would otherwise end the script right here, inside the
+    # branch that exists to explain a failure.
     said="$(grep -oE 'stopped at .*|never stopped: .*|no configuration[^.]*|no nvim-dap.*' "$answered" | head -1 || true)"
     echo "FAILED: ${said:-the editor said nothing}"
-    # A real browser under contended CI hardware occasionally drops the DAP
-    # session after a correct handshake, on Windows only -- DECISIONS.md 57
-    # has the trace. Reported here rather than gating the job, so the three
-    # languages that do not depend on a second live process still enforce.
     if [[ "$lang" == tsx ]]; then
       flaky+=("$lang: ${said:-nothing}")
     else

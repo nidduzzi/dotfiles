@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
 # Check the keymaps of a Neovim config: collisions, duplicates, dead keys.
 #
-# Four faults, all of which shipped here before anything looked for them:
-#
-#   collision   a key that existed upstream and now does something else, taken
-#               without noticing. <leader>sD silently replaced workspace
-#               diagnostics; <leader>xq replaced the quickfix list.
-#   shadowed    our own mapping losing to a buffer-local one, so the key does
-#               something other than what the config says. <leader>cA lost to
-#               LazyVim's Source Action.
-#   duplicate   the same key bound twice inside this config. lazy.nvim keeps
-#               one of them and says nothing.
-#   dead        a key which is bound, appears in the hints, and does nothing.
+#   collision   a key that existed upstream and now does something else
+#   shadowed    our mapping losing to a buffer-local one
+#   duplicate   the same key bound twice; lazy.nvim keeps one and says nothing
+#   dead        a key which is bound, appears in the hints, and does nothing
 #
 # Usage:
 #   check-keymaps.sh [-c CONFIG_DIR] [-n APPNAME] [-b BASELINE_DIR] [-B BASELINE_APP]
@@ -52,10 +45,6 @@ dump() { # config dir, appname, output
     >/dev/null 2>"$complaint" || true
 
   if [[ ! -s "$3" ]]; then
-    # What the driver said, rather than only that this failed: the baseline
-    # stopped dumping when the driver started waiting for a flag only the
-    # configuration under test sets, and "Could not dump keymaps" said none
-    # of that.
     echo "Could not dump keymaps for $2" >&2
     sed 's/^/  /' "$complaint" >&2
     rm -f "$complaint"
@@ -74,7 +63,6 @@ python3 "$HERE/keymap-collisions.py" \
 
 echo
 echo "== keys bound twice in this config =="
-# Two specs binding the same key: lazy.nvim keeps one and reports nothing.
 config_lua="$(dirname "$CONFIG_DIR")/nvim-lazyvim"
 [[ -d "$config_lua" ]] || config_lua="$CONFIG_DIR/$APPNAME"
 
@@ -88,16 +76,10 @@ NVIM_KEYMAP_AUDIT="$OUT/audit.txt" "$HERE/nvim-drive.sh" \
   ":lua vim.env.NVIM_KEYMAP_AUDIT='$OUT/audit.txt' dofile('$HERE/keymap-audit.lua')" 'Enter' \
   >/dev/null 2>&1 || true
 
-# Both of these used to print and move on, so a dead key and a clean run were
-# the same exit status. They are faults like the other two, and they fail here
-# now, with an allowlist for the ones that are someone else's decision.
-#
-# The allowlist is matched as a fixed substring of the reported line, one per
-# line, blank lines and # comments ignored — the same shape as
-# expected-collisions.txt, and the same rule: every entry needs a reason.
+# Allowlist: a fixed substring per line, blank lines and # comments ignored,
+# same shape as expected-collisions.txt.
 ALLOWED="$HERE/expected-dead-keys.txt"
 
-# Drop the allowed lines out of a report, leaving what is news.
 unexpected() {
   if [[ -f "$ALLOWED" ]]; then
     grep -vxF -f <(grep -v '^\s*#' "$ALLOWED" | grep -v '^\s*$') || true
@@ -107,11 +89,8 @@ unexpected() {
 }
 
 if [[ -s "$OUT/audit.txt" ]]; then
-  # Vim's own undescribed built-ins are hidden from the hints, so they are not
-  # the fault this is looking for.
-  # `|| true` on every grep: finding nothing is the good outcome here, and a
-  # grep that matches nothing exits 1, which under `set -e` killed the script
-  # before it could say so.
+  # `|| true` on every grep: no match is the good outcome here, and grep
+  # exits 1 on it, which set -e would otherwise treat as a failure.
   dead="$( { grep -E "DEAD|EMPTY|names code" "$OUT/audit.txt" || true; } | { grep -v "Plug" || true; } | unexpected)"
   if [[ -n "$dead" ]]; then
     printf '%s\n' "$dead"
@@ -125,8 +104,6 @@ if [[ -s "$OUT/audit.txt" ]]; then
 
   echo
   echo "== single keys a plugin took over without describing =="
-  # flash.nvim takes f, F, t and T. They answer to nothing — not which-key, not
-  # the capability list — so "what does t do" had no answer in the editor.
   taken="$( { grep -E "^TAKEN" "$OUT/audit.txt" || true; } | unexpected)"
   if [[ -n "$taken" ]]; then
     printf '%s\n' "$taken"
@@ -139,8 +116,6 @@ if [[ -s "$OUT/audit.txt" ]]; then
   fi
 else
   echo "audit did not run"
-  # An audit that did not run has proven nothing, which is not the same as
-  # having found nothing.
   status=1
 fi
 

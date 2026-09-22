@@ -1,17 +1,6 @@
--- Report what this configuration does to the picker's keys.
---
--- Two lists, written to $PICKER_KEYS_OUT:
---
+-- Report what this configuration does to the picker's keys, to $PICKER_KEYS_OUT:
 --   override <window> <key> <snacks action> -> <ours>
 --   bound    <window> <key>
---
--- The first is every key that already meant something to snacks and now means
--- something else. Taking one is sometimes right — <c-t> sends results to
--- Trouble here — but it is always a decision, and the allowlist beside the
--- checker is where those decisions are written down.
---
--- The second is every key a picker answers to, so a test that drives one can
--- be checked against what exists rather than against what someone remembered.
 
 local defaults = require("snacks.picker.config.defaults").defaults
 local resolved = require("snacks.picker.config").get({ source = vim.env.PICKER_KEYS_SOURCE or "grep" })

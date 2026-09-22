@@ -1,12 +1,6 @@
 #!/usr/bin/env bash
 # Drive Neovim through its features and capture what each one draws.
 #
-# Reading a configuration tells you what should happen. This shows what does.
-# Every scenario below starts a fresh Neovim in an isolated tmux, sends the
-# keys, captures the pane and renders it, so a configuration change can be
-# checked feature by feature rather than by opening the editor and trying to
-# remember what used to work.
-#
 # Usage:
 #   feature-tour.sh -c CONFIG_DIR -n APPNAME [-d WORKDIR] [-o OUT_DIR] [-f FILTER]
 #
@@ -17,7 +11,7 @@
 #   -f REGEX  only run scenarios whose name matches.
 #   -a N      attempts per scenario before it counts as failed. Default: 2.
 #
-# The result is OUT_DIR/index.html: every capture on one page, labelled.
+# Result: OUT_DIR/index.html, every capture on one page.
 set -Eeuo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -44,23 +38,15 @@ done
 
 mkdir -p "$OUT_DIR"
 
-# A Neovim killed mid-scenario leaves a swap file behind, and the next run that
-# opens the same file stops on a recovery prompt instead of showing the feature.
 if [[ -n "$APPNAME" ]]; then
   swap_dir="${XDG_STATE_HOME:-$HOME/.local/state}/$APPNAME/swap"
   [[ -d "$swap_dir" ]] && rm -f "$swap_dir"/*
 fi
 
-# Each scenario is: name | description | wait | expect | keys...
-#
-# `expect` is an extended regular expression the capture has to contain. It is
-# what turns a scenario from "the editor drew something" into a check: eight
-# scenarios drove keys that did nothing at all, and every one of them captured
-# a frame and passed. Match on what the feature itself puts on the screen --
-# a picker title, a message, the text a filter left behind -- not on chrome
-# that would still be there if the key had been ignored.
-#
-# Keys are tmux send-keys arguments, sent in order with a pause between them.
+# name | description | wait | expect | keys...
+# expect is an ERE the capture must contain -- match on what the feature
+# itself draws (a title, a message), never on chrome that would still be
+# there had the key done nothing.
 SCENARIOS=(
   # -- discovery -------------------------------------------------------------
   "startup|Dashboard on an empty start|14|Neovim loaded|"
@@ -146,7 +132,6 @@ for scenario in "${SCENARIOS[@]}"; do
   expect="${parts[3]}"
   keys=("${parts[@]:4}")
 
-  # Drop the empty trailing field a scenario with no keys produces.
   [[ ${#keys[@]} -eq 1 && -z "${keys[0]}" ]] && keys=()
 
   if [[ -n "$FILTER" && ! "$name" =~ $FILTER ]]; then
@@ -157,10 +142,8 @@ for scenario in "${SCENARIOS[@]}"; do
 
   ansi="$OUT_DIR/$name.ansi"
 
-  # Attempts, for the same reason Neovim's own screen tests retry: a language
-  # server answers when it answers. A key that does nothing fails every
-  # attempt, so this hides no defect -- it only stops a slow machine from
-  # reading like a broken one.
+  # A language server answers when it answers; retried, not padded -- a key
+  # that does nothing fails every attempt too.
   drove=0
   for attempt in $(seq "$ATTEMPTS"); do
     if "$HERE/nvim-drive.sh" \
@@ -181,10 +164,6 @@ for scenario in "${SCENARIOS[@]}"; do
   done
 
   if [[ "$drove" -eq 1 ]]; then
-    # The stripped frame is kept when the pattern is missing. Reading the
-    # .ansi afterwards proves nothing: the next run of that scenario
-    # overwrites it, so an inspection minutes later can show the text the
-    # check did not find.
     plain="$OUT_DIR/$name.drawn"
 
     if grep -qE -- "$expect" "$plain"; then
@@ -204,8 +183,6 @@ done
 echo
 echo "Building the contact sheet"
 
-# One page holding every capture, so the whole configuration can be reviewed at
-# once instead of opening two dozen files.
 python3 "$HERE/build-contact-sheet.py" \
   --out "$OUT_DIR/index.html" \
   --title "Neovim feature tour" \
@@ -215,12 +192,6 @@ python3 "$HERE/build-contact-sheet.py" \
 echo
 echo "Open $OUT_DIR/index.html"
 
-# A scenario that could not be captured, or captured a frame without what the
-# feature puts on it, is a scenario that did not work. This used to print
-# FAILED and exit 0 — so a broken key read the same as a clean run to anything
-# checking the exit status. The contact sheet is still
-# built either way, because the frames that did capture are worth looking at
-# while the failure is being fixed.
 if [[ ${#FAILURES[@]} -gt 0 ]]; then
   echo
   echo "${#FAILURES[@]} of $((${#CAPTURED[@]} + ${#FAILURES[@]})) scenarios failed:"

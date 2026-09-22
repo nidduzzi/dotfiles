@@ -1,10 +1,5 @@
---- Dump every mapping as JSON, so two configurations can be compared.
----
---- Written for the collision check: the same dump is taken from stock LazyVim
---- and from this configuration, and the difference is every key this config
---- took over, added or lost. Finding those by hand is how <leader>sD ended up
---- replacing workspace diagnostics and <leader>cA ended up losing to Source
---- Action, both noticed only after they shipped.
+--- Dump every mapping as JSON, for the collision check (diffed against a
+--- stock LazyVim dump to find what this config took over, added or lost).
 ---
 --- Set NVIM_KEYMAP_DUMP to the output path.
 
@@ -19,8 +14,6 @@ for _, mode in ipairs({ "n", "i", "x", "o", "c", "t" }) do
         mode = mode,
         scope = scope,
         desc = map.desc or "",
-        -- The right hand side distinguishes two mappings that share a
-        -- description, and shows what a key was before it was taken over.
         rhs = map.rhs or (map.callback and "<callback>" or ""),
       })
     end

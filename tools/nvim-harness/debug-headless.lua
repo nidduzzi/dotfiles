@@ -1,20 +1,12 @@
--- Run a language's debugger to a breakpoint without a terminal in the way.
+-- Run a language's debugger to a breakpoint without a terminal in the way,
+-- so it can be checked on platforms with no tmux (Windows).
 --
--- check-debuggers.sh drives the editor a person drives: tmux, keys, a picker,
--- a frame to read. That is the check worth having, and it does not run on
--- Windows, where there is no tmux. This asks nvim-dap the same question
--- directly -- start this configuration, stop here, what are the arguments --
--- so the adapters can be checked on every platform the configuration claims.
---
--- Usage:
---   nvim --headless --cmd "lua vim.g.debug_headless = { … }" -l debug-headless.lua
---
--- or, as the harness runs it:
+-- Usage, as the harness runs it:
 --   NVIM_APPNAME=… XDG_CONFIG_HOME=… nvim --headless FIXTURE_FILE \
 --     +"luafile debug-headless.lua"
 --
--- The case comes from the environment, because a -l script runs before the
--- configuration is loaded and this needs the configuration's adapters.
+-- The case comes from the environment: a -l script runs before the
+-- configuration loads, and this needs its adapters.
 
 local case = {
   line = tonumber(vim.env.DEBUG_LINE) or 1,
@@ -25,9 +17,7 @@ local case = {
 
 vim.o.more = false
 
--- What the configuration said on its way to not starting a session. The
--- adapter that cannot be found says so in a notification, which in a headless
--- editor goes nowhere at all.
+-- A notification goes nowhere in a headless editor, so capture it here.
 local notices = {}
 local notify = vim.notify
 vim.notify = function(message, level, opts)
@@ -36,24 +26,19 @@ vim.notify = function(message, level, opts)
 end
 
 local function finish(ok, message)
-  -- Flushed, because the quit that follows does not: on a first Windows run
-  -- the answer was written and then thrown away with the process.
   io.stdout:write(message .. "\n")
   io.stdout:flush()
   vim.cmd(ok and "qa!" or "cq!")
 end
 
--- Nothing here can answer a question. A project nobody has vouched for asks
--- one the moment a file is opened -- which is the configuration working as
--- intended, and, with no one at the keyboard, a wait with no end to it.
+-- An untrusted project asks a question with no one at the keyboard to answer.
 pcall(function()
   require("util.trust").allow(vim.fn.getcwd())
   require("util.trust_menu").forget()
 end)
 
--- Nor can it outlast the job that started it. A session that never answers
--- would otherwise hold a headless editor open until CI gave up on the whole
--- run rather than on this one case.
+-- A session that never answers would otherwise hold this open until CI
+-- gives up on the whole run rather than on this one case.
 vim.defer_fn(function()
   io.stdout:write("never stopped: gave up waiting\n")
   vim.cmd("cq!")
@@ -71,10 +56,8 @@ vim.defer_fn(function()
     return finish(false, ("no configurations for %s"):format(filetype))
   end
 
-  -- A browser started here has no screen to draw on, the address is pinned to
-  -- the one the fixture's server is listening on, and it gets a profile of its
-  -- own. None of that belongs in the configuration: a person debugging a page
-  -- wants to watch it, in the browser they already use.
+  -- Headless: no screen to draw on, pinned to the fixture's own server, own
+  -- profile -- none of which belongs in the real configuration.
   if vim.env.DEBUG_BROWSER_HEADLESS == "1" then
     for _, offered in ipairs(configurations) do
       if offered.type == "pwa-chrome" then
@@ -92,18 +75,14 @@ vim.defer_fn(function()
     return finish(false, ("no configuration %d for %s, only %d"):format(case.choice, filetype, #configurations))
   end
 
-  -- Everything the adapter is told and everything it says back. At the
-  -- default level a spawn that failed leaves no line at all, which is the
-  -- case that most needs one.
   pcall(dap.set_log_level, "TRACE")
 
   vim.api.nvim_win_set_cursor(0, { case.line, 0 })
   dap.toggle_breakpoint()
   dap.run(configuration)
 
-  -- Polled rather than waited on an event: a session that dies before it
-  -- speaks fires nothing, and "nothing happened" is the answer that needs
-  -- reporting rather than hanging on.
+  -- Polled, not waited on an event: a session that dies before it speaks
+  -- fires nothing.
   local stopped = vim.wait(case.settle * 1000, function()
     local session = dap.session()
     return session ~= nil and session.current_frame ~= nil and session.stopped_thread_id ~= nil
@@ -111,14 +90,8 @@ vim.defer_fn(function()
 
   local session = dap.session()
   if not stopped or not session or not session.current_frame then
-    -- The adapter's own last words, because "session gone" is the symptom of
-    -- every possible cause: not installed, would not start, could not find
-    -- the program, stopped somewhere else.
-    -- nvim-dap writes its own log through dap.log's create_logger, which asks
-    -- stdpath("log") -- an alias for stdpath("state") on current Neovim, and
-    -- neither one is stdpath("cache"). Read from the wrong directory, this
-    -- said "the adapter logged nothing" on every failure this ever reported,
-    -- which was true of the path and not of the adapter.
+    -- nvim-dap's own log is at stdpath("log") -- an alias for stdpath("state"),
+    -- not stdpath("cache").
     local said = {}
     local log = vim.fn.stdpath("log") .. "/dap.log"
     if vim.uv.fs_stat(log) then
@@ -142,10 +115,6 @@ vim.defer_fn(function()
   local frame = session.current_frame
   local where = ("%s:%d"):format(vim.fs.basename((frame.source or {}).path or "?"), frame.line or 0)
 
-  -- Where it stopped is the whole assertion here: a frame carrying a source
-  -- path and a line can only have come from an adapter that ran the program.
-  -- The driven check reads the variables pane on top of this; what this one
-  -- adds is the platforms that have no terminal to drive.
   if case.expect ~= "" and where ~= case.expect then
     return finish(false, ("stopped at %s, expected %s"):format(where, case.expect))
   end

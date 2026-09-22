@@ -1,47 +1,34 @@
 #!/usr/bin/env bash
 # Drive an isolated Neovim instance inside a dedicated tmux server and capture
-# what it renders. The tmux server uses its own socket name, so a crash or a
-# stray key never touches the user's real sessions.
+# what it renders.
 #
 # Usage:
 #   nvim-drive.sh [options] [keys ...]
 #
 # Options:
-#   -c DIR    Neovim config directory to run against (sets XDG_CONFIG_HOME).
-#   -n NAME   NVIM_APPNAME, so several configs can coexist under one config dir.
+#   -c DIR    Neovim config directory (sets XDG_CONFIG_HOME).
+#   -n NAME   NVIM_APPNAME.
 #   -d DIR    Working directory Neovim opens in. Default: the current directory.
 #   -s NAME   tmux socket name. Default: nvim-harness.
 #   -W COLS   Pane width.  Default: 120.
 #   -H ROWS   Pane height. Default: 40.
-#   -w SECS   Seconds to wait after startup before sending keys. Default: 3.
+#   -w SECS   Seconds to wait for readiness before sending keys. Default: 3.
 #   -p SECS   Seconds to wait after each key batch. Default: 1.
-#   -a FILE   Open FILE as a command-line argument, which is a different
-#             startup path from opening it once the editor is running.
+#   -a FILE   Open FILE as a command-line argument (a different startup path
+#             from opening it once running).
 #   -o FILE   Write the captured pane to FILE as well as stdout.
 #   -e        Capture with ANSI escape sequences (needed for screenshots).
-#   -k        Keep the tmux server alive after capturing, for manual poking.
-#   A batch written as `wait:<seconds>:<batch>` waits that long after sending,
-#   for anything the editor does not announce the end of.
+#   -k        Keep the tmux server alive after capturing.
+#   -t        Trust the working directory's .nvim.lua before starting.
+#   -F        Trust a .nvim.lua outside this harness (runs Lua the project wrote).
+#   -I        Start with -i NONE (no shada read/write).
 #
-#   -t        Trust the working directory's .nvim.lua before starting, so the
-#             exrc prompt does not swallow the keys meant for the editor.
-#   -F        Trust a .nvim.lua outside this harness. It is Lua the project
-#             wrote, and trusting it runs it.
-#   -I        Start with -i NONE, so nothing is read from or written to shada.
-#             A run that remembers where the cursor was last time is a run
-#             whose result depends on the run before it.
+#   A batch `wait:<seconds>:<batch>` waits that long after sending.
+#   A batch `ex:<command>` is delivered over RPC as an Ex command.
+#   A batch `keys:a b c` sends those keys together with no pause between them.
 #
-# -w is now a timeout rather than a delay: the editor is asked whether it is
-# ready, over its own RPC socket, and the keys go the moment it says yes.
-#
-# A batch written as `ex:<command>` is delivered over RPC as an Ex command
-# rather than as keystrokes, which is the reliable way to do anything that
-# would otherwise depend on which window happens to have focus.
-#
-# Each positional argument is one batch of keys in tmux send-keys syntax, sent
-# in order with a pause between batches. Example:
-#
-#   nvim-drive.sh -c ~/dotfiles/neovim/.config -e -o out.ansi 'Space' 'sg' 'fn'
+# -w is a readiness timeout, not a delay: the editor is asked over its own RPC
+# socket, and keys go the moment it says yes.
 set -Eeuo pipefail
 
 HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -49,9 +36,6 @@ HARNESS="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_DIR=""
 APPNAME=""
 WORKDIR=""
-# Unique per run: two runs sharing a socket kill each other's server, and the
-# dump that results looks like a regression rather than a collision. That cost
-# three "unexpected: 54" results that were not real.
 SOCKET="nvim-harness-$$"
 COLS=120
 ROWS=40
@@ -87,10 +71,8 @@ while getopts "a:c:n:d:s:W:H:w:p:o:ektIF" opt; do
 done
 shift $((OPTIND - 1))
 
-# The editor is started by tmux inside the project directory, so a config
-# directory named relative to the caller resolves against the project instead
-# and Neovim starts with no configuration at all -- line numbers, a plain
-# statusline, and none of the keys the batches press.
+# tmux runs the editor inside WORKDIR, so a relative CONFIG_DIR resolves
+# against the project instead.
 [[ -n "$CONFIG_DIR" ]] && CONFIG_DIR="$(cd "$CONFIG_DIR" && pwd)"
 [[ -n "$WORKDIR" ]] && WORKDIR="$(cd "$WORKDIR" && pwd)"
 
@@ -99,13 +81,8 @@ command -v nvim >/dev/null || { echo "nvim is required" >&2; exit 1; }
 
 tm() { tmux -L "$SOCKET" "$@"; }
 
-# tmux resolves an argument to a key name before treating it as text, and its
-# key names are short: DC is Delete, IC is Insert, and `dc` matches DC without
-# regard to case. `tmux send-keys dc` emits ^[[3~, so <leader>dc deleted a
-# character instead of starting the debugger, silently.
-#
-# So a batch is sent literally unless it names a key. The names recognised here
-# are the ones these scripts use; anything else is text.
+# tmux resolves an argument to a key name (DC, IC, ...) before treating it as
+# text, case-insensitively -- `tmux send-keys dc` emits ^[[3~, not "dc".
 is_key_name() {
   case "$1" in
     Space|Enter|Escape|Tab|BSpace|BTab|Up|Down|Left|Right|Home|End|PageUp|PageDown|IC|DC|NPage|PPage) return 0 ;;
@@ -125,10 +102,8 @@ send_batch() {
   done
 }
 
-
-# Every process the pane's own shell ever spawned, root first. One ps call
-# rather than one per process: `ps -A -o pid=,ppid=` and a walk in awk, since
-# --ppid is a GNU-only ps flag and this needs to work on debuggers-macos too.
+# Every process the pane's shell spawned, root first. One ps call plus an awk
+# walk, not --ppid, which is GNU-only and would not run on debuggers-macos.
 collect_descendants() {
   local root="$1"
   ps -A -o pid=,ppid= 2>/dev/null | awk -v root="$root" '
@@ -150,14 +125,10 @@ collect_descendants() {
 cleanup() {
   [[ "$KEEP" -eq 1 ]] && return 0
 
-  # A server-type DAP adapter is started by nvim-dap detached, in its own
-  # process group, deliberately, so it can outlive a Neovim that crashes --
-  # which also means killing the pane never takes it down. Three julia
-  # DebugAdapter servers and five entire headless Chrome trees (js-debug's
-  # pwa-chrome adapter, each with its own zygote/gpu/renderer children, over
-  # 4GB together) were found still running hours after the runs that started
-  # them. Snapshotted before the pane dies, since after kill-server these are
-  # reparented to init and nothing ties them back to this run any more.
+  # A server-type DAP adapter (julia, js-debug's headless Chrome) is started
+  # detached, in its own process group, so it survives the pane dying --
+  # snapshot descendants before kill-server, since afterwards they are
+  # reparented to init with nothing tying them back to this run.
   local pane_pid descendants
   pane_pid="$(tm display-message -p '#{pane_pid}' 2>/dev/null || true)"
   descendants=""
@@ -166,20 +137,11 @@ cleanup() {
   fi
 
   tm kill-server 2>/dev/null || true
-  # kill-server does not reliably take Neovim itself down with it either --
-  # one was found still running hours later, holding the RPC socket of a run
-  # whose tmux server was long gone. $RPC is unique to this one process
-  # (nvim-drive-$$.sock), so this can only ever match the Neovim this run
-  # itself started. Redundant with the descendant walk above when that finds
-  # a pane_pid at all; cheap, and a second line of defence when it does not.
+  # Belt and braces: kill-server does not reliably take Neovim itself down.
+  # $RPC is unique to this process, so this can only match our own Neovim.
   pkill -f -- "--listen ${RPC:-nvim-drive-not-set}" 2>/dev/null || true
 
   if [[ -n "$descendants" ]]; then
-    # Not reversed: signalling a parent before its child, when the child then
-    # exits with the parent, is a wasted second signal against an already-dead
-    # PID -- harmless, since every kill here tolerates that. `tac` would sort
-    # deepest-first properly, but it is GNU-only and this needs to work on
-    # debuggers-macos too.
     echo "$descendants" | while IFS= read -r pid; do
       kill -TERM "$pid" 2>/dev/null || true
     done
@@ -191,19 +153,15 @@ cleanup() {
     done
   fi
 
-  # kill-server leaves the socket behind, and a run that leaves one file per
-  # invocation in /tmp is a run that left 995 of them behind this session.
   rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"
   [[ -n "${RPC:-}" ]] && rm -f "$RPC"
 }
 trap cleanup EXIT
 
-# A fresh server every run, so state never leaks between captures.
 tm kill-server 2>/dev/null || true
 
-# Each run kills Neovim rather than quitting it, which leaves a swap file
-# behind. The next run that opens the same file would then stop at a recovery
-# prompt and capture that instead of the feature under test.
+# A killed Neovim leaves a swap file, and the next run on the same file stops
+# at a recovery prompt instead of showing the feature under test.
 if [[ -n "$APPNAME" ]]; then
   swap_dir="${XDG_STATE_HOME:-$HOME/.local/state}/$APPNAME/swap"
   [[ -d "$swap_dir" ]] && rm -f "$swap_dir"/*
@@ -211,13 +169,9 @@ fi
 
 : "${WORKDIR:=$PWD}"
 
-# Neovim asks once before running a project's .nvim.lua. That prompt appears
-# before the editor is ready, so any keys this script sends would answer the
-# prompt instead of reaching the editor. Record the trust decision up front.
-# The project trust store, which is a separate decision from the .nvim.lua
-# prompt: it is what lets a project's own programs run, and since gating git
-# it is also what lets gitsigns attach and the diff and worktree keys work.
-# -t means "this is the harness's own fixture", so it grants both.
+# The .nvim.lua trust prompt appears before the editor is ready, so it has to
+# be answered up front rather than by the keys this script sends. -t grants
+# both the exrc trust and the project trust store (gitsigns, diff, worktree).
 if [[ "$TRUST" -eq 1 ]]; then
   workdir_real="$(cd "$WORKDIR" && pwd)"
   if [[ "$workdir_real" == "$HARNESS"/* || "$FORCE_TRUST" -eq 1 ]]; then
@@ -230,9 +184,6 @@ if [[ "$TRUST" -eq 1 ]]; then
 fi
 
 if [[ "$TRUST" -eq 1 && -f "$WORKDIR/.nvim.lua" ]]; then
-  # .nvim.lua is Lua the repository wrote, and trusting it runs it. The prompt
-  # Neovim shows is the only thing standing between a clone and that, so this
-  # answers it only for the fixture, which this repository generates.
   workdir_real="$(cd "$WORKDIR" && pwd)"
   if [[ "$workdir_real" == "$HARNESS"/* || "$FORCE_TRUST" -eq 1 ]]; then
     env ${APPNAME:+NVIM_APPNAME="$APPNAME"} ${CONFIG_DIR:+XDG_CONFIG_HOME="$CONFIG_DIR"} \
@@ -250,14 +201,10 @@ launch="nvim"
 [[ -n "$APPNAME" ]] && launch="NVIM_APPNAME=$APPNAME $launch"
 [[ -n "$CONFIG_DIR" ]] && launch="XDG_CONFIG_HOME=$CONFIG_DIR $launch"
 
-# Carry through what the agent backends read for their endpoint and key. The
-# editor is started by tmux, which does not inherit this shell's environment,
-# so without this Hermes falls back to whatever its config names and answers
-# `HTTP 401: Unauthorized` — which the review then reported as "Nothing found",
-# because a failed request and a clean function looked the same.
-# ANTHROPIC_API_KEY is deliberately not forwarded. Nothing here drives an
-# API, and a key in the environment is a key any program the editor starts can
-# read — which is exactly how the project-binary canary captured one.
+# The agent backends' endpoint/key, which tmux does not inherit from this
+# shell. ANTHROPIC_API_KEY is deliberately not forwarded: nothing here drives
+# that API, and a key in the environment is one any program the editor starts
+# can read.
 for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
             HERMES_INFERENCE_PROVIDER HERMES_INFERENCE_MODEL; do
   if [[ -n "${!name:-}" ]]; then
@@ -266,35 +213,20 @@ for name in CUSTOM_BASE_URL CUSTOM_API_KEY HERMES_ALLOW_PRIVATE_URLS \
 done
 launch="env $launch"
 
-# -f /dev/null keeps the harness server away from the user's tmux config, whose
-# passthrough and plugin settings are themselves under test elsewhere.
-# An RPC socket, so readiness can be asked rather than guessed at. This is the
-# whole point of the rewrite: `sleep 50` is not a readiness check, and every
-# time it was wrong the keys went somewhere else — into the dashboard, which
-# has its own single-key bindings, or into normal mode, where `main` is a
-# mark, an append and two motions rather than a search query. That produced
-# four wrong diagnoses before anyone suspected the harness.
 RPC="${TMPDIR:-/tmp}/nvim-drive-$$.sock"
 rm -f "$RPC"
 launch="$launch --listen $RPC"
 [[ "$NO_SHADA" -eq 1 ]] && launch="$launch -i NONE"
 
-# A file on the command line is a different startup from opening one later:
-# LazyVim loads its autocmds eagerly when argc is not zero, and lazily
-# otherwise, so a handler can exist on one path and not the other. Three
-# versions of the trust prompt were wrong about exactly that.
+# argc affects when LazyVim wires its autocmds up (eager vs lazy), so opening
+# a file on the command line is a different startup path from opening it later.
 [[ -n "$OPEN_FILE" ]] && launch="$launch $(printf '%q' "$OPEN_FILE")"
 
 tm -f /dev/null new-session -d -x "$COLS" -y "$ROWS" -c "$WORKDIR" "$launch"
 
-# Ask the editor whether it is ready, up to BOOT_WAIT seconds.
-#
-# Two signals, because there are two kinds of configuration under test here.
-# This one says vim.g.dotfiles_ready when it has finished wiring its keys up,
-# which is later than v:vim_did_enter and is what a key press actually needs.
-# A stock LazyVim, driven as the baseline for the collision check, says no
-# such thing -- so after half the timeout, having started is accepted, and the
-# settle loop on the capture covers the rest.
+# Two readiness signals: vim.g.dotfiles_ready (this config, once keys are
+# wired) and plain v:vim_did_enter (a stock LazyVim baseline, which never
+# sets the former) -- the second is accepted after half the timeout.
 ready=0
 deadline=$((SECONDS + BOOT_WAIT))
 patient_until=$((SECONDS + BOOT_WAIT / 2))
@@ -318,9 +250,8 @@ if [[ "$ready" -ne 1 ]]; then
   exit 1
 fi
 
-# vim_did_enter fires before lazy.nvim has finished, and a key sent in that
-# window reaches a half-built editor. Wait for the plugin manager to settle
-# too, and give up quietly if this configuration does not use lazy.
+# vim_did_enter fires before lazy.nvim finishes; wait for it too, and give up
+# quietly if this configuration does not use lazy.
 lazy_deadline=$((SECONDS + BOOT_WAIT))
 while (( SECONDS < lazy_deadline )); do
   state=$(nvim --server "$RPC" --remote-expr \
@@ -338,34 +269,23 @@ for batch in "$@"; do
   fi
 
   if [[ "$batch" == ex:* ]]; then
-    # An Ex command, delivered over RPC instead of as keystrokes. Several `:`
-    # commands sent as separate key batches concatenate into one command line
-    # when a dashboard has focus, which fails with E5107 and leaves the editor
-    # showing something other than what was asked for.
-    #
-    # The command is embedded in a Vimscript string literal, where a single
-    # quote ends it: a Lua command written with 'quoted' strings -- which is
-    # most of them -- arrived as a syntax error, and the error went to
-    # /dev/null. Vimscript escapes one by doubling it.
+    # Delivered over RPC, not as keystrokes: several `:` batches sent as
+    # separate keystrokes can concatenate into one command line. The command
+    # is embedded in a Vimscript string; a literal quote is escaped by
+    # doubling it.
     quoted="${batch#ex:}"
     quoted="${quoted//\'/\'\'}"
     nvim --server "$RPC" --remote-send "<C-\><C-N>" 2>/dev/null || true
     if ! nvim --server "$RPC" --remote-expr "execute('$quoted')" >/dev/null 2>&1; then
-      # Typed instead, because the RPC call failed. On macOS it failed every
-      # time and said so only to /dev/null: every Ex command the harness sent
-      # there was dropped, and what that looked like was a browser opening a
-      # window on a machine with no screen.
+      # Fallback to typed keys: the RPC call fails silently on some
+      # platforms (macOS), and every Ex command sent that way was dropped.
       tm send-keys -l ":${batch#ex:}"
       tm send-keys Enter
     fi
   elif [[ "$batch" == keys:* ]]; then
-    # Several keys together, with no pause between them. A leader sequence sent
-    # as separate batches has seconds between its keys, and a mapping split
-    # that far apart is not the mapping — `Space` then `?` a second later is a
-    # space and a reverse search, not <leader>?.
-    # Split on spaces with globbing off. Unquoted expansion looked simpler and
-    # was wrong: `?` and `*` are key names to tmux and glob characters to the
-    # shell, so `keys:Space ?` could expand to a filename before tmux saw it.
+    # Several keys with no pause between them, for a mapping that only fires
+    # when its keys arrive together. `set -f`: `?`/`*` are glob characters to
+    # the shell and key names to tmux.
     set -f
     # shellcheck disable=SC2086
     read -r -a _keys <<< "${batch#keys:}"
@@ -377,14 +297,8 @@ for batch in "$@"; do
   sleep "$wait_for"
 done
 
-# Capture when the screen has stopped moving.
-#
-# A float can exist before it has been drawn: a probe over RPC said the picker
-# was open while the captured pane showed the file underneath it, three runs
-# out of three. Waiting a fixed extra second only moves the race. Two
-# identical captures in a row mean the editor has finished redrawing, and the
-# loop gives up after a second and a half so a genuinely animated screen --- a
-# spinner, a progress message --- still produces a frame.
+# Capture once the screen stops moving: a float can exist before it is drawn,
+# so two identical captures in a row are the signal, not a fixed extra sleep.
 grab() {
   if [[ "$CAPTURE_ANSI" -eq 1 ]]; then
     tm capture-pane -p -e -N -S 0 -E "$((ROWS - 1))"

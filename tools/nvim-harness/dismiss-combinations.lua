@@ -1,22 +1,14 @@
 -- What one press of the dismiss key closes, with things open on top of things.
---
--- Every feature passed on its own. The holes were all combinations: the
--- debugger UI is six windows and the key did nothing in front of it, a
--- terminal in a split did nothing, and a diff view owns its tab so closing
--- one of its windows left the rest. See DECISIONS 31 and 32.
+-- See DECISIONS 31 and 32: every feature passed alone, the holes were all
+-- combinations (a debugger UI of six windows, a diff view owning its tab).
 --
 -- Writes one line per case to $DISMISS_OUT:
---
 --   <case> opened=<what was on screen> after=<what is left>
 
 local dismiss = require("util.dismiss")
 
---- What is on screen, ignoring notifications.
----
---- A notification is transient and arrives unasked --- a language server
---- warning on a runner with no language servers, for instance --- so counting
---- one as something the key failed to close makes the gate report on the
---- weather. The dismiss key does hide them, on the rung below the panels.
+--- What is on screen, ignoring notifications (transient, unasked-for, and
+--- already handled by the dismiss key on the rung below the panels).
 ---@return string
 local function windows()
   local names = {}
@@ -31,11 +23,6 @@ local function windows()
   return table.concat(names, ",")
 end
 
---- Wait for the screen to stop being what it was.
----
---- A fixed sleep is a guess about the slowest machine that will ever run
---- this. The debugger UI took longer than three seconds on a CI runner, and
---- the press that followed landed before there was anything to close.
 ---@param was string
 ---@param timeout integer
 local function until_different(was, timeout)
@@ -48,8 +35,6 @@ end
 ---@param open fun()
 ---@return string
 local function case(name, open)
-  -- Cleared first: a notification left over from the case before would be
-  -- what this one's press closes, and the panel would still be there.
   pcall(function()
     Snacks.notifier.hide()
   end)
@@ -84,9 +69,6 @@ out[#out + 1] = case("terminal", function()
 end)
 
 out[#out + 1] = case("trouble", function()
-  -- Diagnostics of its own, rather than a language server's: a runner may
-  -- have no server for this file, and then Trouble opens nothing and the
-  -- press that follows proves nothing.
   vim.diagnostic.set(vim.api.nvim_create_namespace("dismiss-combinations"), 0, {
     {
       lnum = 0,
@@ -108,9 +90,6 @@ out[#out + 1] = case("grug-far", function()
 end)
 
 out[#out + 1] = case("diff view", function()
-  -- A diff view owns its whole tab, so closing one of its windows leaves the
-  -- tab, the file panel and the diff. This is the case that made the dismiss
-  -- key learn about composite views at all: see DECISIONS 31.
   vim.cmd("DiffviewOpen")
 end)
 
@@ -121,8 +100,6 @@ out[#out + 1] = case("debugger", function()
   end)
 end)
 
--- The file has to survive all of it: a key that closes the buffer you are
--- working in is worse than one that does nothing.
 out[#out + 1] = "end " .. windows()
 
 vim.fn.writefile(out, assert(vim.env.DISMISS_OUT))

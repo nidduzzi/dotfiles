@@ -1,15 +1,6 @@
 #!/usr/bin/env bash
-# Find key batches that tmux would read as a key name rather than as text.
-#
-# tmux resolves an argument to a key name before treating it as text, and its
-# names are short and matched without regard to case: DC is Delete, IC is
-# Insert, and so `tmux send-keys dc` emits ^[[3~. A two-letter vim sequence
-# that collides is sent as something else entirely, silently.
-#
-# The drivers now send text with `send-keys -l`, so this checks the other
-# direction: a batch in a script or a .keys file that was *meant* as a key name
-# but is spelled in a way the drivers will send literally, and a batch meant as
-# text that tmux would still resolve.
+# Find key batches that tmux would read as a key name rather than as text
+# (DC/IC etc. resolve to key names, case-insensitively, before text).
 #
 # Usage:
 #   check-key-names.sh [DIR ...]      default: this directory and the screens
@@ -27,9 +18,6 @@ trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true; rm -f "${TMUX_TMPDIR:-/
 tmux -L "$SOCKET" -f /dev/null new-session -d -x 60 -y 6 "cat -v"
 sleep 0.5
 
-# What tmux emits for a token. `cat -v` shows an escape as ^[, and the pane is
-# read rather than a redirect, because a redirected cat holds its output in a
-# buffer until it exits.
 emits_escape() {
   tmux -L "$SOCKET" send-keys -- "$1" 2>/dev/null || return 1
   sleep 0.25
@@ -43,7 +31,6 @@ emits_escape() {
 REPORT="$(mktemp)"
 trap 'tmux -L "$SOCKET" kill-server 2>/dev/null || true; rm -f "$REPORT" "$REPORT.tokens" "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/$SOCKET"' EXIT
 
-# Every quoted batch in the shell scripts, and every line of every .keys file.
 {
   grep -rhoE "'(keys:)?[A-Za-z][A-Za-z0-9?$-]{0,12}'" "$HERE"/*.sh |
     tr -d "'" | sed 's/^keys://'

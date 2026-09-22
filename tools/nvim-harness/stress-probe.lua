@@ -1,12 +1,8 @@
---- Measure this configuration against a real project, from inside it.
----
---- The feature tour proves a thing works once, in a fixture built to make it
---- work. This asks a harder question: does it hold up in a repository someone
---- actually has, with 5000 files, vendored code, generated output and a
+--- Measure this configuration against a real project, from inside it: does
+--- it hold up in a repository with thousands of files, vendored code and a
 --- language nobody tested against.
 ---
---- Writes one line per measurement to $NVIM_STRESS_OUT, so a shell loop can
---- run it across many projects and diff the answers.
+--- Writes one line per measurement to $NVIM_STRESS_OUT.
 
 local out = {}
 
@@ -21,10 +17,8 @@ local started = vim.uv.hrtime()
 say("project", vim.fn.fnamemodify(vim.uv.cwd(), ":t"))
 say("filetype", vim.bo.filetype ~= "" and vim.bo.filetype or "none")
 
--- How much there is to search. A picker that is pleasant over 200 files can be
--- unusable over 50000, and the number is the first thing worth knowing.
--- A list, not a string: a string goes through 'shell', which quotes
--- differently on Windows and needs 2>/dev/null to exist at all.
+-- A list, not a string: 'shell' quotes differently on Windows and needs
+-- 2>/dev/null to exist at all.
 local tracked = vim.fn.systemlist({ "git", "ls-files" })
 if vim.v.shell_error ~= 0 then
   tracked = {}
@@ -36,8 +30,6 @@ local all = vim.fs.find(function(name, path)
 end, { path = assert(vim.uv.cwd()), type = "file", limit = 60000 })
 say("files_on_disk", #all)
 
--- The capability list: the thing most likely to be slow or incomplete, since
--- it walks every mapping in the editor and every Ex command.
 local ok, capabilities = pcall(require, "util.capabilities")
 if ok then
   local t0 = vim.uv.hrtime()
@@ -64,9 +56,6 @@ else
   say("capabilities_error", tostring(capabilities))
 end
 
--- Search filters, which are the feature this configuration exists for. The
--- question is whether the documentation globs actually match this project's
--- documentation, or whether they were written for one repository's layout.
 local ok_search, search = pcall(require, "util.search")
 if ok_search then
   local docs, code = 0, 0
@@ -99,17 +88,8 @@ else
   say("search_error", tostring(search))
 end
 
--- Which language servers this project provides, which is the part that is
--- deliberately not installed for you.
 local ok_lsp, lsp = pcall(require, "util.lsp")
 if ok_lsp then
-  -- Which of the project's own binary directories actually exist here. This is
-  -- the mechanism that decides whether a server is attached at all, so a
-  -- project where none of them exist should attach nothing but lua_ls.
-  -- bin_dirs takes the project root and returns the directories that exist in
-  -- it. It used to be a table of names to check by hand; reading it as one
-  -- passed a function to ipairs, which ended the probe before it wrote
-  -- anything, and run-probes.sh printed the report from the run before.
   local present = lsp.bin_dirs(assert(vim.uv.cwd()))
   say("project_bin_dirs", #present > 0 and table.concat(present, ",") or "none")
   say("lsp_baseline", table.concat(lsp.baseline or {}, ","))
@@ -124,7 +104,6 @@ for _, client in ipairs(clients) do
 end
 say("lsp_attached", #attached > 0 and table.concat(attached, ",") or "none")
 
--- Anything the configuration complained about while starting.
 local messages = vim.split(vim.fn.execute("messages"), "\n", { plain = true })
 local errors = {}
 for _, line in ipairs(messages) do

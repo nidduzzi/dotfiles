@@ -1,13 +1,7 @@
 #!/usr/bin/env bash
-# Two things about the keys that only exist inside a picker.
-#
-#   1. Every key the feature tour presses inside a picker is bound to
-#      something. The tour drove <a-p> for the filter list for as long as it
-#      has existed; <a-p> is snacks' toggle-preview, so the frame showed a
-#      working picker and the run passed. A scenario that captures a frame
-#      proves the editor drew something, not that the key did anything.
-#   2. Every key this configuration takes from snacks is one somebody decided
-#      to take. expected-picker-overrides.txt holds those decisions.
+# 1. Every key the feature tour presses inside a picker is bound to something
+#    (a captured frame proves the editor drew, not that the key did anything).
+# 2. Every key this config takes from snacks is in expected-picker-overrides.txt.
 #
 # Usage:
 #   check-picker-keys.sh [-c CONFIG_DIR] [-n APPNAME]
@@ -40,10 +34,8 @@ PICKER_KEYS_OUT="$KEYS" \
 
 status=0
 
-# 1. Keys the tour presses that nothing answers to.
-#
-# Only the ones a picker could plausibly own: a scenario's first batches open
-# the picker and are ordinary editor keys.
+# Keys the tour presses that nothing answers to: only the ones a picker could
+# plausibly own (modifier combos).
 driven=()
 while IFS= read -r line; do
   driven+=("$line")
@@ -56,8 +48,7 @@ done < <(
 
 unbound=()
 for key in "${driven[@]}"; do
-  # tmux spells a modifier M-x or C-x; snacks spells it <M-x> or <C-x>, and
-  # nvim_replace_termcodes has already upper-cased the control keys.
+  # tmux spells a modifier M-x/C-x; snacks spells it <M-x>/<C-x>.
   bracketed="<${key}>"
   if ! grep -qiF "bound input $bracketed" "$KEYS" && ! grep -qiF "bound list $bracketed" "$KEYS"; then
     unbound+=("$key")
@@ -70,7 +61,6 @@ if [[ ${#unbound[@]} -gt 0 ]]; then
   status=1
 fi
 
-# 2. Keys taken from snacks that nobody wrote down.
 allowed="$HERE/expected-picker-overrides.txt"
 undeclared="$(
   grep '^override ' "$KEYS" |

@@ -1,13 +1,5 @@
---- Time the things that run while someone is waiting.
----
---- The stress probe asks whether a feature works in a real project. This asks
---- how long it blocks the editor, which is a different question with a
---- different answer: a filesystem walk that is instant over a fixture can take
---- a second over a repository with five thousand files, and it runs on the main
---- loop, so a second is a second of frozen editor.
----
---- Anything over about 100ms here is felt as a stutter; over 500ms reads as a
---- hang.
+--- Time the blocking calls in a real project. Over ~100ms is felt as a
+--- stutter; over ~500ms reads as a hang.
 
 local out = {}
 
@@ -35,17 +27,14 @@ table.insert(out, ("tracked: %d"):format(vim.v.shell_error == 0 and #tracked or 
 local recall = require("util.recall")
 local capabilities = require("util.capabilities")
 
--- Called on every <a-e> inside a grep, to suggest extensions.
 timed("recall.extensions", function()
   return recall.extensions()
 end)
 
--- Called on every <a-G>, to suggest path globs.
 timed("recall.top_level_globs", function()
   return recall.top_level_globs()
 end)
 
--- Called every time the capability picker opens.
 timed("capabilities.keymaps", function()
   return capabilities.keymaps()
 end)
@@ -58,7 +47,6 @@ timed("capabilities.everything", function()
   return capabilities.items("everything")
 end)
 
--- The agent's idea of where it is, called once per request.
 local ok_agent, agent = pcall(require, "util.agent")
 if ok_agent then
   timed("agent.root", function()

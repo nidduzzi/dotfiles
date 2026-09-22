@@ -1,11 +1,6 @@
 #!/usr/bin/env bash
 # One press of the dismiss key closes what is open, and never the file.
-#
-# Every one of these passed on its own; the holes were all combinations. The
-# debugger UI is six windows and the key did nothing in front of it, a
-# terminal in a split did nothing, and a diff view owns its tab so closing one
-# of its windows left the tab, the panel and the diff. See DECISIONS 31 and
-# 32.
+# See DECISIONS 31 and 32 for the combination cases this once missed.
 #
 # Usage:
 #   check-dismiss.sh [-c CONFIG_DIR] [-n APPNAME]
@@ -37,9 +32,6 @@ DISMISS_FILE="$HERE/fixture/broken.py" \
 
 [[ -s "$REPORT" ]] || { echo "the editor reported nothing at all" >&2; exit 1; }
 
-# The file is python throughout: it is what was open at the start, and a key
-# that closes the buffer you are working in is worse than one that does
-# nothing.
 status=0
 while IFS= read -r line; do
   case "$line" in

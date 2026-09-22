@@ -29,19 +29,13 @@ done
 
 mkdir -p "$OUT"
 
-# Cleared, because a report that did not run this time is a report from
-# whenever it last did. The fixture run printed label-studio's 5626 tracked
-# files, taken from a stress.txt written days earlier, and read as if the
-# fixture had them.
+# Cleared: a report that did not run this time is otherwise a stale one.
 rm -f "$OUT/stress.txt" "$OUT/perf.txt" "$OUT/parity.txt"
 
 status=0
 
 drive() {
   local probe_env="$1" probe_out="$2" probe_lua="$3" wait_secs="$4"
-  # stderr is kept. The driver refused to start once, with "FORCE_TRUST:
-  # unbound variable", and this reported "did not run" -- which is true and
-  # says nothing about why.
   local complaint
   complaint="$(mktemp)"
   env "$probe_env=$probe_out" "$HERE/nvim-drive.sh" \
@@ -103,30 +97,16 @@ else
 fi
 
 if [[ -n "$PARITY_SYMBOL" ]]; then
-  # Driven with no file open, the probe asked the dashboard buffer what
-  # servers had attached to it, which is never any of them: every run before
-  # this one reported "cursor: ..." and nothing else, as if a language server
-  # had been asked something. A file containing the symbol is found and opened
-  # first, so there is a real buffer for one to attach to.
-  # Absolute, because the driven editor's own cwd is already $PROJECT: a
-  # path grep hands back still carrying that prefix opened $PROJECT/$PROJECT,
-  # a file that does not exist, which no error caught -- :edit on a missing
-  # path just makes an empty buffer, so the probe reported "no language
-  # server attached" and meant "wrong file" the whole time.
+  # A file containing the symbol is found and opened first, so there is a
+  # real buffer for a language server to attach to.
   #
-  # --include has to come before --, not after: once -- ends option parsing,
-  # each --include=* is read as a literal filename to search rather than a
-  # flag, grep fails to open eight files that were never files, and the
-  # whole gate exited 2 with nothing printed -- from the one script in this
-  # harness that used -- for the reason it exists, escaping a search term
-  # that can start with a dash.
-  # grep exits 1 when nothing matches anywhere, not an error, and pipefail
-  # carries that through | head -1 as the pipeline's own exit status. Under
-  # set -e that status belonged to this assignment, which is the whole
-  # statement, and every symbol this was tried against before happened to
-  # exist somewhere -- so a genuinely absent one was what finally reached
-  # this and ended the script here with nothing printed at all, before the
-  # "no file under..." message a few lines down ever got the chance to run.
+  # --include has to come before --: after -- ends option parsing, each
+  # --include=* is read as a literal filename, and grep fails to open eight
+  # files that were never files.
+  #
+  # `|| true`: grep exits 1 when nothing matches, which under pipefail would
+  # otherwise end the script here, silently, before "no file under..." below
+  # ever runs.
   parity_file="$(
     grep -rlF \
       --include='*.py' --include='*.ts' --include='*.tsx' --include='*.js' \
@@ -134,12 +114,8 @@ if [[ -n "$PARITY_SYMBOL" ]]; then
       -- "$PARITY_SYMBOL" "$PROJECT" \
       2>/dev/null | head -1
   )" || true
-  # An if, not a bare `&&`: when nothing matched, parity_file is empty,
-  # [[ -n "" ]] is false, and that false was this statement's own exit status
-  # under set -e -- which ended the whole script right here, silently, before
-  # the "no file under..." message below ever ran. A real project with a
-  # symbol that genuinely is not there is what finally exercised this path
-  # and found it dead: no output at all, just exit 1.
+  # An if, not a bare `&&`: when nothing matched this would otherwise end
+  # the script here under set -e, before the message below runs.
   if [[ -n "$parity_file" ]]; then
     parity_file="$(cd "$(dirname "$parity_file")" && pwd)/$(basename "$parity_file")"
   fi

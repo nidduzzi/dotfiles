@@ -1,17 +1,11 @@
---- Audit every multi-key mapping: what it is, where it applies, whether it works.
+--- Audit every multi-key mapping: which exist, which are dead, which describe
+--- themselves with machinery rather than words.
 ---
---- Three questions this answers, which reading the config cannot:
----
----   * which combinations exist, in which mode, in which context
----   * which of them show up in the hints but do nothing when pressed
----   * which of them describe themselves with machinery rather than words
----
---- Run it through the harness with a file open, so buffer-local mappings and
---- attached language servers are real:
----
+--- Run with a file open, so buffer-local mappings and attached servers are
+--- real:
 ---   nvim --headless -c 'luafile keymap-audit.lua' -c qa
 ---
---- It writes a report to the path in $NVIM_KEYMAP_AUDIT, or prints it.
+--- Writes a report to $NVIM_KEYMAP_AUDIT, or prints it.
 
 local report = {}
 
@@ -19,7 +13,6 @@ local function line(text)
   table.insert(report, text or "")
 end
 
---- Does this mapping describe itself in words a person would use?
 ---@param map table
 ---@return string status, string text
 local function describe(map)
@@ -28,14 +21,11 @@ local function describe(map)
   if desc == "" then
     local rhs = map.rhs or ""
     if rhs == "" then
-      -- A Lua callback with no description: the hint shows the function.
       return "no description", "<lua callback>"
     end
     return "no description", rhs
   end
 
-  -- A description that is really a function name or a Lua path, which is what
-  -- a plugin leaves behind when it forgets to write one.
   if desc:match("^[%w_%.]+%(%)?$") or desc:match("^function") or desc:match("^<Lua") then
     return "names code", desc
   end
@@ -43,11 +33,8 @@ local function describe(map)
   return "ok", desc
 end
 
---- Is there anything on the other end of this mapping?
----
---- `prefixes` holds every mapping that is the start of a longer one, because a
---- group like <leader>s is registered as a mapping with nothing behind it and
---- is not dead: it is the thing that makes the hints appear.
+--- `prefixes` holds every mapping that starts a longer one -- a group like
+--- <leader>s is what makes the hints appear, not a dead end.
 ---@param map table
 ---@param prefixes table<string, boolean>
 ---@return string
@@ -61,7 +48,6 @@ local function liveness(map, prefixes)
     return prefixes[vim.fn.keytrans(map.lhs or "")] and "prefix" or "EMPTY"
   end
 
-  -- <cmd>Foo<cr> is dead if :Foo does not exist.
   local command = rhs:match("^[<:]?[Cc][Mm][Dd]?>?:?(%a[%w_]*)") or rhs:match("^:(%a[%w_]*)")
   if command then
     if vim.fn.exists(":" .. command) == 0 then
@@ -73,19 +59,16 @@ local function liveness(map, prefixes)
   return "keys"
 end
 
---- Single-key mappings, collected across every call so they can be reported
---- on their own. A plugin that takes over `t` is invisible to which-key and to
---- the combination audit alike.
+--- Single-key mappings, collected across every call: invisible to which-key
+--- (needs a prefix to pop up on) and to the combination audit alike.
 ---@type table[]
 local singles = {}
 
---- Every mapping of two keys or more, in one mode, global and buffer-local.
 ---@param mode string
 ---@return table[]
 local function collect(mode)
   local rows = {}
 
-  -- Anything that another mapping extends is a prefix, not a dead end.
   local prefixes = {}
   local function note_prefixes(maps)
     for _, map in ipairs(maps) do
@@ -101,12 +84,8 @@ local function collect(mode)
   local function add(maps, scope)
     for _, map in ipairs(maps) do
       local lhs = vim.fn.keytrans(map.lhs or "")
-      -- Single keys are not combinations, and which-key has nothing to show
-      -- for them because there is no prefix to wait on. They are collected
-      -- separately rather than skipped: a plugin that takes over a built-in
-      -- single key and gives it no description is the hardest kind of key to
-      -- find out about. flash.nvim takes f, F, t and T this way, and "what
-      -- does t do" had no answer anywhere in the editor.
+      -- Single keys are not combinations. flash.nvim takes over f/F/t/T this
+      -- way, so these are collected rather than skipped.
       if vim.fn.strchars(lhs) == 1 then
         local status, text = describe(map)
         table.insert(singles, {
@@ -136,14 +115,8 @@ local function collect(mode)
   return rows
 end
 
---- Single keys whose behaviour was replaced, worst first: the ones that cannot
---- say what they do.
 ---@return table[]
 local function taken_over()
-  -- Vim's own single-key commands have no desc either, and listing all of them
-  -- would bury the handful a plugin actually replaced. A global mapping with a
-  -- callback is a plugin's doing; a plain rhs is usually a personal remap and
-  -- reads for itself.
   local interesting = {}
   for _, row in ipairs(singles) do
     if row.scope == "global" and row.status ~= "ok" then
@@ -166,9 +139,6 @@ line("# Keymap audit")
 line()
 line(("context: %s   file: %s"):format(context, vim.fn.expand("%:t")))
 
--- What the attached servers can actually do. LazyVim binds its LSP keys only
--- when a client supports the method, so a key that is bound and unsupported is
--- worth seeing; so is a key that is missing because nothing supports it.
 local clients = vim.lsp.get_clients({ bufnr = 0 })
 local methods = {}
 for _, client in ipairs(clients) do
@@ -233,8 +203,6 @@ end
 local replaced = taken_over()
 line()
 line(("## single keys taken over: %d"):format(#replaced))
-line("-- A built-in key a plugin replaced without saying what it now does.")
-line("-- Invisible to which-key, which needs a prefix to pop up on.")
 if #replaced == 0 then
   line("none")
 else

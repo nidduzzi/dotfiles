@@ -186,9 +186,13 @@ for case in "${CASES[@]}"; do
 
     if [[ -s "$OUT_DIR/$lang.jsdebug.log" ]]; then
       echo "           what the browser adapter traced:"
-      grep -oE '"(error|exceptionThrown|cannot|Cannot)[^"]*"' "$OUT_DIR/$lang.jsdebug.log" |
-        sort -u | head -6 | sed 's/^/           /'
-      grep -oE 'Unable to launch browser[^"]*' "$OUT_DIR/$lang.jsdebug.log" | head -2 | sed 's/^/           /'
+      # `|| true`: grep exits 1 when the trace has neither phrase, which under
+      # pipefail would otherwise end the whole script right here, inside the
+      # branch that exists to explain a failure.
+      { grep -oE '"(error|exceptionThrown|cannot|Cannot)[^"]*"' "$OUT_DIR/$lang.jsdebug.log" ||
+        true; } | sort -u | head -6 | sed 's/^/           /'
+      { grep -oE 'Unable to launch browser[^"]*' "$OUT_DIR/$lang.jsdebug.log" || true; } |
+        head -2 | sed 's/^/           /'
     fi
 
     echo "           what the editor offers for this file:"

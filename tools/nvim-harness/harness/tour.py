@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import os
 import re
-import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -240,13 +239,13 @@ def run(
 
     print()
     print("Building the contact sheet")
-    subprocess.run(
-        [sys.executable, str(HARNESS_DIR / "build-contact-sheet.py"),
-         "--out", str(out / "index.html"),
-         "--title", "Neovim feature tour",
-         "--dir", str(out),
-         *[f"{name}|{desc}" for name, desc in captured]],
-        check=False,
+    from .reporting import build_contact_sheet
+
+    build_contact_sheet(
+        out=out / "index.html",
+        dir=out,
+        captures=[f"{name}|{desc}" for name, desc in captured],
+        title="Neovim feature tour",
     )
 
     print()

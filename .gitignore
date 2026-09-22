@@ -24,6 +24,7 @@ tools/nvim-harness/fixture/
 tools/nvim-harness/trials/*/lazy-lock.json
 __pycache__/
 *.py[co]
+tools/nvim-harness/.venv/
 
 # The design canvas is seeded from the .dc.html sources next to it, and the
 # seeded file carries a whole editor inlined: 2.4MB of minified code that is

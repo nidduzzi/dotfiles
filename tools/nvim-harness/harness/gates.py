@@ -20,6 +20,7 @@ from pathlib import Path
 
 from .driver import HARNESS_DIR, drive, is_key_name
 from .fixtures import build_fixture
+from .tour import scenario_keys
 from . import keymaps as _keymaps
 
 CONFIG_ROOT_DEFAULT = os.environ.get(
@@ -205,21 +206,11 @@ def check_capability_keys(config_dir: str | None = None, appname: str | None = N
 
 # -- check-picker-keys -------------------------------------------------
 
-_SCENARIO_RE = re.compile(r'"[a-z-]+\|[^|]*\|[0-9]+\|[^"]*"')
 _MODIFIER_KEY_RE = re.compile(r"^[MC]-.$")
 
 
 def _driven_picker_keys() -> list[str]:
-    # Static read of feature-tour.sh's own scenario strings -- switch to
-    # importing tour.py's SCENARIOS once that phase of the port lands.
-    text = (HARNESS_DIR / "feature-tour.sh").read_text()
-    tokens: set[str] = set()
-    for m in _SCENARIO_RE.finditer(text):
-        for part in m.group(0).strip('"').split("|"):
-            part = re.sub(r"^wait:[0-9]*:", "", part)
-            if _MODIFIER_KEY_RE.match(part):
-                tokens.add(part)
-    return sorted(tokens)
+    return sorted({key for key in scenario_keys() if _MODIFIER_KEY_RE.match(key)})
 
 
 def check_picker_keys(config_dir: str | None = None, appname: str | None = None) -> int:

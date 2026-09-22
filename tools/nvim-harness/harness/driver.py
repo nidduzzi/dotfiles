@@ -108,9 +108,14 @@ class NvimDriver:
         force_trust: bool = False,
         no_shada: bool = False,
     ) -> None:
-        self.config_dir = Path(config_dir).resolve() if config_dir else None
+        # os.path.abspath, not Path.resolve(): bash's `cd DIR && pwd` makes a
+        # relative path absolute without following symlinks, and
+        # screen-test.sh relies on that -- it launches nvim through a stable
+        # symlinked config path deliberately, and resolving it here would
+        # print the real (long, machine-specific) path on screen instead.
+        self.config_dir = Path(os.path.abspath(config_dir)) if config_dir else None
         self.appname = appname
-        self.workdir = Path(workdir).resolve() if workdir else Path.cwd()
+        self.workdir = Path(os.path.abspath(workdir)) if workdir else Path.cwd()
         self.socket = socket or f"nvim-harness-{os.getpid()}"
         self.cols = cols
         self.rows = rows

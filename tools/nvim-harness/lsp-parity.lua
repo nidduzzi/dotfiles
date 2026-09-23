@@ -1,13 +1,8 @@
---- Exercise every capability a language server advertises, and report what answered.
+--- Exercise every capability a language server advertises, and report what
+--- answered -- an advertised capability may still be unbound and untested.
 ---
---- A server saying it supports a request is not the same as the editor being
---- able to make it: the capability may be advertised, unbound, and therefore
---- untested. This sends each request the attached servers claim to support and
---- records what came back, so "we have parity with the VS Code extension" is a
---- measurement rather than a belief.
----
---- Set NVIM_LSP_PARITY to a path for the report, and NVIM_LSP_PARITY_CLIENT to
---- one server's name to ask only that one.
+--- Set NVIM_LSP_PARITY to a path for the report, and NVIM_LSP_PARITY_CLIENT
+--- to one server's name to ask only that one.
 
 local report = {}
 local wanted = vim.env.NVIM_LSP_PARITY_CLIENT
@@ -16,13 +11,23 @@ local function line(text)
   table.insert(report, text or "")
 end
 
+local target = vim.env.NVIM_LSP_PARITY_FILE
+if target and target ~= "" then
+  vim.cmd.edit(target)
+  vim.wait(15000, function()
+    return #vim.lsp.get_clients({ bufnr = 0 }) > 0
+  end, 100)
+end
+
 local bufnr = vim.api.nvim_get_current_buf()
 local clients = vim.lsp.get_clients({ bufnr = bufnr })
 
---- Put the cursor on something worth asking about. A keyword or a comment
---- answers "nothing here" for every request, which looks like a server that
---- does not work rather than a cursor in the wrong place, so NVIM_LSP_PARITY_SYMBOL
---- names an identifier to sit on.
+if target and target ~= "" and #clients == 0 then
+  line(("no language server attached to %s after 15s"):format(target))
+end
+
+-- Put the cursor on something worth asking about, so a "nothing here" answer
+-- means the server doesn't support it rather than a misplaced cursor.
 local symbol = vim.env.NVIM_LSP_PARITY_SYMBOL
 local placed = false
 

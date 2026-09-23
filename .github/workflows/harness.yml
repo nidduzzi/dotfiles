@@ -1,0 +1,420 @@
+name: harness
+
+on:
+  push:
+  pull_request:
+  # Nightly, because the whole feature tour is sixty editors started one after
+  # another: too slow to run on a push, and the thing most worth knowing about
+  # a configuration that only moves when someone edits it.
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      config_ref:
+        description: nvim-config ref to test against
+        default: master
+
+env:
+  # The branch the screens are committed on. The two repositories move
+  # together and this is the seam between them; merging the stack removes it.
+  CONFIG_REF: ${{ github.event.inputs.config_ref || 'master' }}
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          ln -sfn "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
+      - name: the tools the picker looks for
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tmux fd-find ripgrep
+          mkdir -p "$HOME/.local/bin"
+          ln -sf "$(command -v fdfind)" "$HOME/.local/bin/fd"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/nvim-lazyvim
+            ~/.local/state/nvim-lazyvim
+          key: nvim-${{ hashFiles('.worktrees/nvim-lazyvim/lazy-lock.json') }}
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - name: install the parsers the fixture needs
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless -c 'lua require("nvim-treesitter").install({ "lua", "python", "javascript", "markdown", "markdown_inline", "bash", "json", "vim", "vimdoc", "query" }):wait(600000)' +qa
+          nvim --headless -c 'lua local have = require("nvim-treesitter.config").get_installed("parsers") print(table.concat(have, " "))' +qa
+
+      - name: the language server the screens need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless -c 'lua local p = require("mason-registry").get_package("lua-language-server") p:install() vim.wait(600000, function() return p:is_installed() end, 1000)' +qa
+          nvim --headless -c 'lua print("lua_ls: " .. tostring(vim.fn.exepath("lua-language-server")))' +qa
+
+      - run: python3 tools/nvim-harness/harness.py fixture --force
+
+      - run: python3 tools/nvim-harness/harness.py syntax
+
+      - run: python3 tools/nvim-harness/duplicate-keys.py .worktrees/nvim-lazyvim/lua
+
+      - run: python3 tools/nvim-harness/harness.py rung-flags-match
+
+      - run: python3 tools/nvim-harness/harness.py key-names
+
+      - name: the keys that only exist inside a picker
+        run: python3 tools/nvim-harness/harness.py picker-keys
+
+      # The probes are the only thing that runs this configuration's modules
+      # against a project rather than compiling them. One of them read a
+      # function as a table for weeks: the file compiled, the probe died on
+      # the line, and the gate printed the report from an earlier run.
+      - name: the keys the capability list claims
+        run: python3 tools/nvim-harness/harness.py capability-keys
+
+      - name: what loads before you ask for it
+        run: python3 tools/nvim-harness/harness.py startup-plugins
+
+      # The baseline is a stock LazyVim, committed under trials/, so this
+      # needs its plugins installed as well as the configuration's. It is the
+      # gate that says which keys were taken from LazyVim on purpose, and it
+      # caught four that were not written down: the git pickers, rebound
+      # through the trust gate.
+      - name: keys taken from stock LazyVim
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/tools/nvim-harness/trials
+          NVIM_APPNAME: lazyvim-snacks
+        run: |
+          nvim --headless "+Lazy! restore" +qa
+      - name: the collision check
+        run: python3 tools/nvim-harness/harness.py keymaps
+
+      - name: both ways into a project ask about trust
+        run: python3 tools/nvim-harness/harness.py startup-paths
+
+      - name: one press closes what is open
+        run: python3 tools/nvim-harness/harness.py dismiss
+
+      - name: the probes, against the fixture
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        # -s exercises lsp-parity.lua: it opens a file containing the symbol,
+        # waits for lua_ls to attach, and asks it every request the fixture's
+        # own workflow makes. Never passed here before, so this never ran in CI.
+        run: python3 tools/nvim-harness/harness.py probes -p tools/nvim-harness/fixture -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim -s 'M.add'
+
+      # The runner's node decides whether a .ts file runs at all: below 22.6
+      # nothing strips the types, the configuration starts main.ts under a node
+      # that cannot read it, and the session dies before the adapter speaks.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          # Through mason's Lua API rather than :MasonInstall, which is a
+          # command the plugin only registers once something has loaded it --
+          # on the runner it was E492: Not an editor command. Installing is
+          # asynchronous either way, so this waits for the binaries and fails
+          # here rather than leaving the gate to report a debugger that never
+          # started.
+          nvim --headless \
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') and vim.uv.fs_stat(bin .. 'vtsls') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
+            path="$HOME/.local/share/$NVIM_APPNAME/mason/bin/$tool"
+            [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
+          done
+
+      - name: the programs the debuggers run
+        env:
+          # Without this the fixture builder looks for the TypeScript compiler
+          # under ~/.local/share/nvim, which is not where this configuration
+          # keeps its tools -- so the TSX fixture went uncompiled and its case
+          # skipped itself while the run stayed green.
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          python3 tools/nvim-harness/harness.py debug-fixtures
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --tmux -o "${{ runner.temp }}/nvim-debuggers"
+
+      # The frame a debugger failed on is the only evidence of why: which
+      # configuration ran, what the adapter said, whether anything started.
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debuggers-drawn
+          path: ${{ runner.temp }}/nvim-debuggers
+          if-no-files-found: ignore
+
+      - name: the whole feature tour
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          python3 tools/nvim-harness/harness.py tour \
+            -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim \
+            -o "${{ runner.temp }}/feature-tour"
+
+      - name: the tour, however it went
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-tour
+          path: ${{ runner.temp }}/feature-tour
+          if-no-files-found: ignore
+
+      - name: screens
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: python3 tools/nvim-harness/harness.py screens -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim -l
+
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screens-drawn
+          path: .worktrees/nvim-lazyvim/tests/screen/
+          retention-days: 7
+
+  shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: bash -n every script
+        run: |
+          status=0
+          while IFS= read -r script; do
+            bash -n "$script" || { echo "syntax error: $script"; status=1; }
+          done < <(find tools -name '*.sh')
+          exit "$status"
+
+  # The same debuggers, on the other Unix. Nothing here is Linux-specific in
+  # principle -- codelldb, debugpy and js-debug all ship macOS builds -- and
+  # "in principle" is what this repository keeps finding to be untrue.
+  debuggers-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          ln -sfn "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
+      - run: brew install tmux ripgrep fd
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless \
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter') and vim.uv.fs_stat(bin .. 'js-debug-adapter') and vim.uv.fs_stat(bin .. 'codelldb') and vim.uv.fs_stat(bin .. 'vtsls') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
+            path="$HOME/.local/share/$NVIM_APPNAME/mason/bin/$tool"
+            [[ -x "$path" ]] || { echo "mason did not install $tool"; exit 1; }
+          done
+
+      - name: the programs the debuggers run
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          python3 tools/nvim-harness/harness.py debug-fixtures
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --tmux -o "${{ runner.temp }}/nvim-debuggers"
+
+      # always(), because the debugger step reports rather than fails while
+      # the browser case is open: on failure() this never ran and the trace it
+      # was added to collect went with the runner.
+      # The screens that need no language server, on the other Unix. They were
+      # captured on Linux and all eleven match here, so the same committed
+      # frames hold both platforms to the same drawing.
+      - run: python3 tools/nvim-harness/harness.py fixture --force
+
+      - name: the screens, on macOS
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: python3 tools/nvim-harness/harness.py screens -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim
+
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debuggers-drawn-macos
+          path: ${{ runner.temp }}/nvim-debuggers
+          if-no-files-found: ignore
+
+  # Windows has no tmux, so the driven check cannot run there and the adapters
+  # went unchecked on the platform most likely to break them. This asks
+  # nvim-dap directly instead. C, C++ and Rust are left out: their fixtures
+  # need a toolchain to build, which is a different thing to test.
+  debuggers-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: nidduzzi/nvim-config
+          ref: ${{ env.CONFIG_REF }}
+          path: .worktrees/nvim-lazyvim
+
+      - run: |
+          mkdir -p .worktrees/cfg
+          cp -r "$GITHUB_WORKSPACE/.worktrees/nvim-lazyvim" .worktrees/cfg/nvim-lazyvim
+
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+      - run: python3 -m pip install pynvim
+
+      - name: install plugins at the pinned commits
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: nvim --headless "+Lazy! restore" +qa
+
+      - name: the adapters the debuggers need
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          nvim --headless \
+            +"lua local registry = require('mason-registry') registry.refresh(function() for _, name in ipairs({ 'debugpy', 'js-debug-adapter', 'codelldb', 'vtsls' }) do local package = registry.get_package(name) if not package:is_installed() then package:install() end end end)" \
+            +"lua local bin = vim.fn.stdpath('data') .. '/mason/bin/' local waited = 0 local timer = vim.uv.new_timer() timer:start(1000, 1000, vim.schedule_wrap(function() waited = waited + 1 local have = vim.uv.fs_stat(bin .. 'debugpy-adapter.cmd') and vim.uv.fs_stat(bin .. 'js-debug-adapter.cmd') and vim.uv.fs_stat(bin .. 'codelldb.cmd') and vim.uv.fs_stat(bin .. 'vtsls.cmd') if have or waited > 300 then timer:stop() vim.cmd('qa!') end end))"
+          # Asked of the editor, because where mason puts things is the
+          # editor's decision and it is a different directory on Windows.
+          bin="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data') .. '/mason/bin') io.stdout:flush()" +qa 2>/dev/null)"
+          echo "mason bin: $bin"
+          ls "$bin"
+          for tool in debugpy-adapter js-debug-adapter codelldb vtsls; do
+            ls "$bin/$tool"* >/dev/null 2>&1 || { echo "mason did not install $tool"; exit 1; }
+          done
+
+      - name: the programs the debuggers run
+        env:
+          NVIM_APPNAME: nvim-lazyvim
+        run: |
+          python3 tools/nvim-harness/harness.py debug-fixtures
+          test -f tools/nvim-harness/debug-fixtures/tsx/index.js
+
+      # Started by hand, with no editor in the picture: if node cannot get that
+      # package listening here either, the ECONNREFUSED a session reports is
+      # about node and the package rather than about the configuration.
+      - name: the debug server, started by hand
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        timeout-minutes: 5
+        run: |
+          data="$(nvim --headless +"lua io.stdout:write(vim.fn.stdpath('data')) io.stdout:flush()" +qa 2>/dev/null)"
+          server="$data/mason/packages/js-debug-adapter/js-debug/src/dapDebugServer.js"
+          ls -l "$server"
+          node "$server" 5679 >server.log 2>&1 &
+          for _ in 1 2 3 4 5 6 7 8 9 10; do
+            curl -s -o /dev/null --max-time 2 "http://127.0.0.1:5679/" && break
+            sleep 1
+          done
+          # Exit 52 is an empty reply, which is a socket that answered. Exit 7
+          # is nothing listening at all.
+          curl -s -o /dev/null -w 'curl exit: %{exitcode}\n' --max-time 2 "http://127.0.0.1:5679/" || true
+          echo "what the server said:"
+          cat server.log || true
+
+      - name: every debugger stops where it is told to
+        env:
+          XDG_CONFIG_HOME: ${{ github.workspace }}/.worktrees/cfg
+          NVIM_APPNAME: nvim-lazyvim
+        # A step timeout as well as the check's own: a headless editor stuck in
+        # a prompt takes the whole run with it otherwise, and a job that hangs
+        # for six hours says nothing a job that fails in ten minutes does not.
+        timeout-minutes: 15
+        # Rust as well: the runner has a toolchain, codelldb ships a Windows
+        # build, and whether those two agree about a program built there is
+        # exactly the kind of thing that is claimed and not checked. And TSX in
+        # a browser, which Windows had no way to check at all until the
+        # headless path learned to serve a page and start one.
+        run: python3 tools/nvim-harness/harness.py debuggers -c "$GITHUB_WORKSPACE/.worktrees/cfg" -n nvim-lazyvim --headless -f '^(python|typescript|tsx|rust)$'

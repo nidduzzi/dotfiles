@@ -17,10 +17,14 @@ tmux-local/.config/tmux/local/*
 
 # Harness scratch: trial Neovim configs pull in plugins, and the fixture repo
 # is regenerated on demand.
+# The fixture holds a git repository of its own, so it cannot be committed as
+# plain files. tools/nvim-harness/make-fixture.sh generates it instead, which
+# is what makes the two gates that default to it work on a fresh clone.
 tools/nvim-harness/fixture/
 tools/nvim-harness/trials/*/lazy-lock.json
 __pycache__/
 *.py[co]
+tools/nvim-harness/.venv/
 
 # The design canvas is seeded from the .dc.html sources next to it, and the
 # seeded file carries a whole editor inlined: 2.4MB of minified code that is
@@ -45,3 +49,7 @@ tools/nvim-harness/*-check/
 
 # Git worktrees for in-progress submodule branches (the LazyVim migration).
 .worktrees/
+
+# Built by tools/nvim-harness/make-debug-fixtures.sh: compiled binaries, a
+# virtualenv and a cargo target directory, none of which belong in git.
+tools/nvim-harness/debug-fixtures/

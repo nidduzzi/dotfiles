@@ -86,6 +86,14 @@ def main() -> int:
     print(f"taken over: {len(taken)}   added: {len(added)}   lost: {len(lost)}")
     print(f"unexpected: {len(unexpected)}")
 
+    # Named even when quiet. A gate that reports a count and not the thing
+    # counted is a gate somebody has to reproduce locally before they can act
+    # on it, and the local answer may differ from the one that failed.
+    for before, after in unexpected:
+        entry = after or before
+        was = before["desc"] or before["rhs"] if after else "(gone)"
+        print(f"  ! {entry['lhs']:<20} {entry['mode']:<2} was: {was}")
+
     if taken and not args.quiet:
         print("\n== taken over ==")
         for before, after in taken:

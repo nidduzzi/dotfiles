@@ -1,0 +1,9 @@
+# Picker keys this configuration takes from snacks, and why.
+#
+# One per line, exactly as check-picker-keys.sh prints them. A line here is a
+# decision someone made; a line the checker prints that is not here is a key
+# that was taken by accident.
+override input <C-C> cancel -> close
+override input <C-T> tab -> trouble_open
+override input <Esc> cancel -> close
+override list <Esc> cancel -> close

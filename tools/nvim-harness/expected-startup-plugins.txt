@@ -1,0 +1,32 @@
+# Plugins loaded by the time the editor is sitting at the dashboard.
+#
+# lazy.nvim loads a plugin when it is first needed, so a plugin here is one
+# that something asked for at startup. Each is deliberate: the colourscheme,
+# the statusline and tabline, the picker the dashboard is drawn by, the
+# treesitter layer the first file needs, and the plugins LazyVim itself wires
+# into its own startup.
+#
+# A name appearing here that nobody added is an accident -- a lazy spec that
+# lost its event or its keys -- and the editor looks identical either way. It
+# just takes longer to open.
+#
+# Re-baseline with check-startup-plugins.sh -u after a deliberate change.
+LazyVim
+bufferline.nvim
+flash.nvim
+lazy.nvim
+lualine.nvim
+mason-lspconfig.nvim
+mini.ai
+mini.pairs
+noice.nvim
+nui.nvim
+nvim-origami
+nvim-treesitter
+nvim-treesitter-textobjects
+project.nvim
+snacks.nvim
+tokyonight.nvim
+trouble.nvim
+ts-comments.nvim
+which-key.nvim

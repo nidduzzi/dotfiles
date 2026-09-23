@@ -12,12 +12,12 @@ on:
     inputs:
       config_ref:
         description: nvim-config ref to test against
-        default: claude-manual
+        default: master
 
 env:
   # The branch the screens are committed on. The two repositories move
   # together and this is the seam between them; merging the stack removes it.
-  CONFIG_REF: ${{ github.event.inputs.config_ref || 'claude-manual' }}
+  CONFIG_REF: ${{ github.event.inputs.config_ref || 'master' }}
 
 jobs:
   gates:

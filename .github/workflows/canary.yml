@@ -10,11 +10,11 @@ on:
         default: claude
       config_ref:
         description: nvim-config ref to test against
-        default: master
+        default: editor-ergonomics
 
 env:
   AGENT: ${{ github.event.inputs.agent || 'claude' }}
-  CONFIG_REF: ${{ github.event.inputs.config_ref || 'master' }}
+  CONFIG_REF: ${{ github.event.inputs.config_ref || 'editor-ergonomics' }}
 
 jobs:
   lockdown:

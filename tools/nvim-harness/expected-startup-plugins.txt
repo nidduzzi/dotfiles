@@ -14,6 +14,7 @@
 LazyVim
 bufferline.nvim
 flash.nvim
+hardtime.nvim
 lazy.nvim
 lualine.nvim
 mason-lspconfig.nvim

@@ -59,3 +59,8 @@ n	[a
 n	]a
 n	[A
 n	]A
+
+# hardtime.nvim takes j and k in normal mode to hint at counts and jumps
+# instead of repeated presses. It only hints, never blocks. See DECISIONS 80.
+n	j
+n	k

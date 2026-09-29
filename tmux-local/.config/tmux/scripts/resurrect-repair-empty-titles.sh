@@ -27,17 +27,17 @@ while IFS= read -r line || [[ -n $line ]]; do
 
 	if [[ $kind == pane && -z $extra_fields && $full_command == :* &&
 		$title == :* && $path == [01] && $pane_command =~ ^[0-9]+$ ]]; then
-		shifted_path=$title
-		shifted_pane_active=$path
-		shifted_pane_command=$pane_active
-		shifted_pane_pid=$pane_command
+		recovered_path=$title
+		recovered_pane_active=$path
+		recovered_pane_command=$pane_active
+		recovered_pane_pid=$pane_command
 		recomputed_full_command=
 		if [[ -x $command_strategy_file ]]; then
-			recomputed_full_command=$("$command_strategy_file" "$shifted_pane_pid" 2>/dev/null | head -n 1)
+			recomputed_full_command=$("$command_strategy_file" "$recovered_pane_pid" 2>/dev/null | head -n 1)
 		fi
 		printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t:%s\n' \
 			"$kind" "$session" "$window" "$window_active" "$window_flags" "$pane_index" \
-			"$placeholder_title" "$shifted_path" "$shifted_pane_active" "$shifted_pane_command" \
+			"$placeholder_title" "$recovered_path" "$recovered_pane_active" "$recovered_pane_command" \
 			"$recomputed_full_command" >>"$repaired_file"
 		repaired_lines=$((repaired_lines + 1))
 	else

@@ -383,12 +383,6 @@ tmux_conf_urlscan_options="--compact --dedupe"
 
 # this is the place to override or undo settings
 
-# History size, mouse mode and clipboard now live in
-# ~/.config/tmux/shared/10-behaviour.conf, sourced by the machine tiers block
-# further down this file. allow-passthrough is deliberately not set here: it
-# has crashed sixel-capable tmux builds and their entire set of sessions, so it
-# is a per-host opt-in.
-
 # force Vi mode
 #   really you should export VISUAL or EDITOR environment variable, see manual
 #set -g status-keys vi

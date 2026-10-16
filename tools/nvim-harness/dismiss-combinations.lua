@@ -47,6 +47,7 @@ local function case(name, open)
 
   dismiss.dismiss()
   until_different(opened, 8000)
+  vim.wait(300)
 
   return ("%s opened=%s after=%s"):format(name, opened, windows())
 end

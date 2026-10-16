@@ -64,3 +64,22 @@ n	]A
 # instead of repeated presses. It only hints, never blocks. See DECISIONS 80.
 n	j
 n	k
+
+# Lowercase acts on the working directory, uppercase on the current file's
+# project root: the reverse of LazyVim, whose lowercase keys used the root.
+# See nvim-config DECISIONS 94.
+n	<Space>ff
+n	<Space>fF
+n	<Space>sG
+n	<Space>sW
+x	<Space>sW
+n	<Space>e
+n	<Space>E
+n	<Space>fe
+n	<Space>fE
+n	<Space>ft
+n	<Space>fT
+n	<Space>gg
+n	<Space>gG
+n	<lt>C-/>
+t	<lt>C-/>

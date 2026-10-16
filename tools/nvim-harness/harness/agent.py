@@ -106,10 +106,10 @@ RUNGS = ("chat", "context", "explore", "edit")
 
 # Flags per agent per rung, kept in step with lua/util/agent/backends.lua.
 CLAUDE_FLAGS: dict[str, list[str]] = {
-    "chat": ["--tools", "", "--strict-mcp-config"],
-    "context": ["--tools", "", "--strict-mcp-config"],
-    "explore": ["--tools", "Read,Grep,Glob", "--strict-mcp-config"],
-    "edit": ["--tools", "Read,Grep,Glob,Edit,Write", "--strict-mcp-config"],
+    "chat": ["--tools", "", "--strict-mcp-config", "--setting-sources", "user"],
+    "context": ["--tools", "", "--strict-mcp-config", "--setting-sources", "user"],
+    "explore": ["--tools", "Read,Grep,Glob", "--strict-mcp-config", "--setting-sources", "user"],
+    "edit": ["--tools", "Read,Grep,Glob,Edit,Write", "--strict-mcp-config", "--setting-sources", "user"],
 }
 HERMES_TOOLSET: dict[str, str] = {"chat": "todo", "context": "todo", "edit": "file"}
 EXPECTED_REGISTRY: dict[str, str] = {

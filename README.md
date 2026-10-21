@@ -8,6 +8,7 @@ WARNING: This includes submodules of foreign repositories
 git clone --recurse-submodules <this repo> ~/dotfiles
 cd ~/dotfiles
 stow bash-omb tmux-omt tmux-local neovim
+tools/shell/install-local-bashrc.sh
 ```
 
 `stow -D <package>` removes a package, `stow -R <package>` reinstalls one.
@@ -20,14 +21,14 @@ on every host.
 
 | Package      | Provides                                                      |
 | ------------ | ------------------------------------------------------------- |
-| `bash-basic` | A plain `.bashrc` for machines without oh-my-bash              |
-| `bash-omb`   | oh-my-bash `.bashrc` plus the shell config tiers               |
+| `bash-basic` | A plain shared bashrc for machines without oh-my-bash          |
+| `bash-omb`   | oh-my-bash shared bashrc plus the shell config tiers           |
 | `tmux-basic` | A minimal `.tmux.conf` with tpm                                |
 | `tmux-omt`   | The gpakosz/.tmux submodule, kept pristine                     |
 | `tmux-local` | Our tmux overrides and the tmux config tiers                   |
 | `neovim`     | The Neovim config submodule                                    |
 
-`bash-basic` and `bash-omb` both claim `~/.bashrc`, so install one or the
+`bash-basic` and `bash-omb` both provide `~/.config/shell/bashrc`, so install one or the
 other. The same applies to `tmux-basic` and `tmux-omt` plus `tmux-local`.
 
 ## Three tiers of configuration
@@ -51,23 +52,49 @@ there can be committed by accident.
 None of these files has to exist. A machine with no host file and an empty
 local directory gets the shared tier and nothing else.
 
-## Keeping the shared `.bashrc` clean
+## `~/.bashrc` belongs to the machine
 
-`~/.bashrc` is a symlink into this repo, so installers that append their setup
-lines to it are writing into config that every machine shares. That is how
-`k3s` completion and a Hugging Face cache path ended up in the shared file.
+Installers append their setup lines to `~/.bashrc` without asking. When
+`~/.bashrc` was a symlink into this repo, those lines landed in shared config
+and followed you to every machine. That is how `k3s` completion and a Hugging
+Face cache path ended up in the shared file.
 
-The shared `.bashrc` ends with an append guard marker. Anything an installer
-adds lands below it, where it is easy to spot and easy to move:
+So `~/.bashrc` is now a plain file that is never committed. The shared config
+is `~/.config/shell/bashrc`, stowed from this repo, and
+`tools/shell/install-local-bashrc.sh` adds a line to `~/.bashrc` that
+loads it, after anything already there so the shared config wins over a
+distribution's default `~/.bashrc`:
 
 ```sh
-tools/shell/harvest-appended.sh --show   # what got appended
-tools/shell/harvest-appended.sh          # move it to the local tier
-tools/shell/harvest-appended.sh --host   # move it to this machine's tier
+case $- in
+  *i*) ;;
+  *) return ;;
+esac
+source "${XDG_CONFIG_HOME:-$HOME/.config}/shell/bashrc"
 ```
 
-Run it after installing anything that edits your shell profile, then check
-`git status` before committing.
+Whatever an installer appends goes below that line and stays on this
+machine. To share a setting, move it into a tier above. The script keeps the
+contents of an existing plain `~/.bashrc` below the new line, and does
+nothing on a second run. `~/.bashrc_local` is still loaded for machines that
+have one.
+
+### Moving a machine over
+
+A machine set up before this has `~/.bashrc` linked to `bash-omb/.bashrc`
+(or `bash-basic/.bashrc`) in the repo. That file stays as a short stub that loads the shared config, so
+pulling never leaves the link dangling, and `stow` no longer links it
+anywhere new (`.stow-local-ignore`). Move over whenever convenient:
+
+```sh
+cd ~/dotfiles && git pull
+stow -R bash-omb            # or bash-basic
+tools/shell/install-local-bashrc.sh
+```
+
+Anything an installer appended to the stub in the meantime moves into the new
+`~/.bashrc`, and the stub goes back to its committed content. If the stub was
+edited rather than appended to, the script stops and changes nothing.
 
 ## Why `tmux-local` exists separately
 
@@ -172,7 +199,7 @@ sequence is recorded, so turn it off once the fault is understood.
 
 | Script                                  | Purpose                                            |
 | --------------------------------------- | -------------------------------------------------- |
-| `tools/shell/harvest-appended.sh`       | Move installer-appended lines out of shared config |
+| `tools/shell/install-local-bashrc.sh`   | Make `~/.bashrc` local and load the shared config  |
 | `tools/tmux/crash-capture.sh`           | Run tmux with logging and core dumps enabled       |
 | `tools/tmux/nvim-startup-repro.sh`      | Start Neovim in tmux repeatedly, watching for death |
 | `tools/tmux/fake-terminal.py`           | Attach a pty that answers terminal queries          |

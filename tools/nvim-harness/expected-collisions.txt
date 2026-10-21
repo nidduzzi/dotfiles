@@ -49,6 +49,13 @@ n	<Space>gs
 n	<Space>gl
 n	<Space>gL
 n	<Space>gb
+n	<Space>gD
+n	<Space>gS
+n	<Space>fg
+n	<Space>gB
+x	<Space>gB
+n	<Space>gY
+x	<Space>gY
 
 # Vim's own argument-list keys, replaced by mini.bracketed's jumps of the same
 # meaning: [a and ]a move between arguments either way, and [A and ]A go to

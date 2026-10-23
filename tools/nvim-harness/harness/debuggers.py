@@ -366,7 +366,8 @@ def _run_headless_case(case: Case, config_dir: str, appname: str | None, out_dir
         # (the answer used none of the four phrasings), not an error.
         match = re.search(r"stopped at .*|never stopped: .*|no configuration[^.]*|no nvim-dap.*", text)
         said = match.group(0) if match else None
-        return False, f"FAILED: {said or 'the editor said nothing'}"
+        last_lines = " | ".join(text.strip().splitlines()[-4:]) or "nothing"
+        return False, f"FAILED: {said or 'the editor said nothing'} (exit {proc.returncode}; last output: {last_lines})"
     finally:
         if server is not None:
             server.terminate()

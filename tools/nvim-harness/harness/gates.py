@@ -318,6 +318,14 @@ def check_startup_paths(config_dir: str | None = None, appname: str | None = Non
             return plain.count("Trust this project")
 
         status = 0
+        if asks("wait:5:ex:echo ''", open_file="src/lib.lua") != 0:
+            print("  a project whose git names no programs was asked about")
+            status = 1
+
+        pre_commit_hook = project / ".git" / "hooks" / "pre-commit"
+        pre_commit_hook.write_text("#!/bin/sh\nexit 0\n")
+        pre_commit_hook.chmod(0o755)
+
         if asks("wait:5:ex:echo ''", open_file="src/lib.lua") == 0:
             print("  a file named on the command line was not asked about")
             status = 1
@@ -344,7 +352,7 @@ def check_startup_paths(config_dir: str | None = None, appname: str | None = Non
             status = 1
 
         if status == 0:
-            print("Asked on both ways in, and silent once trusted.")
+            print("Silent where git names no programs, asked on both ways in where it does, silent once trusted.")
         return status
     finally:
         shutil.rmtree(project, ignore_errors=True)

@@ -53,3 +53,8 @@ tools/nvim-harness/*-check/
 # Built by tools/nvim-harness/make-debug-fixtures.sh: compiled binaries, a
 # virtualenv and a cargo target directory, none of which belong in git.
 tools/nvim-harness/debug-fixtures/
+
+# niri: DankMaterialShell regenerates dms/*.kdl (colours follow the wallpaper),
+# so only the hand-written binds are shared.
+niri/.config/niri/dms/*
+!niri/.config/niri/dms/binds.kdl

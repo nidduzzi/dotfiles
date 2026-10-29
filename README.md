@@ -27,9 +27,19 @@ on every host.
 | `tmux-omt`   | The gpakosz/.tmux submodule, kept pristine                     |
 | `tmux-local` | Our tmux overrides and the tmux config tiers                   |
 | `neovim`     | The Neovim config submodule                                    |
+| `niri`       | niri `config.kdl` and the hand-written `dms/binds.kdl`         |
 
 `bash-basic` and `bash-omb` both provide `~/.config/shell/bashrc`, so install one or the
 other. The same applies to `tmux-basic` and `tmux-omt` plus `tmux-local`.
+
+## niri
+
+`stow niri` links `~/.config/niri`. `config.kdl` includes `dms/*.kdl`, which
+DankMaterialShell writes itself (colours follow the wallpaper), so only
+`dms/binds.kdl` is tracked and the rest is ignored. niri fails on a missing
+include, so on a new machine run `dms run` once, or create empty files for
+the `dms/` includes, before starting niri. Per-machine monitor settings belong
+in `dms/outputs.kdl`, which DMS manages.
 
 ## Three tiers of configuration
 

@@ -28,6 +28,7 @@ on every host.
 | `tmux-local` | Our tmux overrides and the tmux config tiers                   |
 | `neovim`     | The Neovim config submodule                                    |
 | `niri`       | niri `config.kdl` and the hand-written `dms/binds.kdl`         |
+| `mise`       | mise `config.toml`: global node, python and uv, uv-managed venvs |
 
 `bash-basic` and `bash-omb` both provide `~/.config/shell/bashrc`, so install one or the
 other. The same applies to `tmux-basic` and `tmux-omt` plus `tmux-local`.

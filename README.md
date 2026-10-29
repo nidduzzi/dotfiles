@@ -42,6 +42,27 @@ include, so on a new machine run `dms run` once, or create empty files for
 the `dms/` includes, before starting niri. Per-machine monitor settings belong
 in `dms/outputs.kdl`, which DMS manages.
 
+## GNOME
+
+GNOME keeps its settings in dconf, which stow cannot link, so
+`tools/gnome/apply-dconf.sh` writes the few that are choices (`--dry-run`
+shows what it would do) and turns on the extensions that are installed:
+
+- **GPaste** (`dnf install gpaste gnome-shell-extension-gpaste`) answers
+  Super+V. GNOME's notification panel gives that key up (it keeps Super+M).
+- **appindicator** (`gnome-shell-extension-appindicator`) for tray icons.
+- **PaperWM** is not in the Fedora repos. Install it from
+  extensions.gnome.org or run `make install` in a clone of
+  github.com/paperwm/PaperWM. Its centre-vertically key moves to
+  Super+Shift+V so it does not fight GPaste, and barf-out is on Super+Alt+O
+  because Super+O never reached PaperWM (GNOME's rotation lock defaults to
+  that key, which is the likely cause).
+- **Fresh Web Wallpaper** (extensions.gnome.org) for the daily wallpaper.
+
+GNOME Shell only finds new extensions at login, so log out and back in after
+installing one. Do not copy PaperWM's `restore-keybinds` and `restore-*` keys
+anywhere: they are its own bookkeeping, not a choice.
+
 ## Three tiers of configuration
 
 Machine-specific settings used to be edited straight into the shared files,
@@ -211,6 +232,7 @@ sequence is recorded, so turn it off once the fault is understood.
 | Script                                  | Purpose                                            |
 | --------------------------------------- | -------------------------------------------------- |
 | `tools/shell/install-local-bashrc.sh`   | Make `~/.bashrc` local and load the shared config  |
+| `tools/gnome/apply-dconf.sh`            | Apply the GNOME shortcut and extension settings    |
 | `tools/tmux/crash-capture.sh`           | Run tmux with logging and core dumps enabled       |
 | `tools/tmux/nvim-startup-repro.sh`      | Start Neovim in tmux repeatedly, watching for death |
 | `tools/tmux/fake-terminal.py`           | Attach a pty that answers terminal queries          |

@@ -1,6 +1,12 @@
 # Toolchain hooks. Each block checks for the toolchain first, so this file is
 # safe to load on a machine that has none of them.
 
+# mise: runtime manager (node, python, uv). Its tools are listed in
+# ~/.config/mise/config.toml, stowed from the mise package.
+if command -v mise &>/dev/null; then
+  eval "$(mise activate bash)"
+fi
+
 # fnm: Node version manager.
 FNM_PATH="$HOME/.local/share/fnm"
 if [[ -d "$FNM_PATH" ]]; then

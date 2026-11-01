@@ -1,0 +1,23 @@
+[Unit]
+Description=Update the GDM login-screen background
+# Only after `install` has run once (the script keeps the stock theme here).
+ConditionPathExists=/var/lib/gdm-login-background/original.gresource
+
+[Service]
+Type=oneshot
+# EDIT THE FOLDER, and choose "next" (cycle in name order) or "newest".
+ExecStart=/usr/bin/python3 /usr/local/sbin/gdm_login_background.py rotate /home/YOUR_USER/Pictures/login-rotation next
+
+# Only the picture and the script's state folder are writable. The theme is only read.
+ProtectSystem=strict
+ReadWritePaths=/usr/share/backgrounds/gdm-login /var/lib/gdm-login-background
+ProtectHome=read-only
+PrivateTmp=yes
+PrivateDevices=yes
+NoNewPrivileges=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes

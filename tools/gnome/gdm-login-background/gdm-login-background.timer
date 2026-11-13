@@ -1,0 +1,9 @@
+[Unit]
+Description=Rotate the GDM login-screen background
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1h
+
+[Install]
+WantedBy=timers.target
